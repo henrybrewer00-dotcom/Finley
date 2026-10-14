@@ -1,4 +1,4 @@
-"""Command line: `finley serve | new | import | run | metrics | bench`."""
+"""Command line: `finley serve | new | find | import | run | metrics | bench`."""
 
 from __future__ import annotations
 
@@ -26,6 +26,13 @@ def main(argv: list[str] | None = None) -> int:
     n.add_argument("--icp", required=True)
     n.add_argument("--proof", default="")
     n.add_argument("--voice-file", help="text file of emails you wrote before")
+
+    f = sub.add_parser("find", help="find new leads on the web from a description of your ideal customer")
+    f.add_argument("campaign_id", type=int)
+    f.add_argument("description", nargs="?", default="", help="defaults to the campaign's ICP")
+    f.add_argument("--limit", type=int, default=25)
+    f.add_argument("--exclude-domains", default="")
+    f.add_argument("--dry-run", action="store_true", help="fake AI and fake websites, no cost")
 
     i = sub.add_parser("import", help="import leads from a CSV")
     i.add_argument("campaign_id", type=int)
@@ -66,6 +73,12 @@ def main(argv: list[str] | None = None) -> int:
         cid = db.insert("campaigns", {"name": args.name, "offer": args.offer, "icp": args.icp,
                                       "proof": args.proof, "voice_samples": voice, "created_at": now()})
         print(f"Created campaign {cid}")
+    elif args.cmd == "find":
+        from .sourcing import fake_fetch, find_leads
+        offline = {"fetch": fake_fetch, "mx_check": lambda d: True, "email_finder": lambda d: []} if args.dry_run else {}
+        result = find_leads(db, make_llm(args.dry_run), settings, args.campaign_id, description=args.description,
+                            limit=args.limit, exclude_domains=args.exclude_domains, **offline)
+        print(json.dumps(result, indent=2))
     elif args.cmd == "import":
         from .sources.csv_import import import_csv
         print(import_csv(db, args.campaign_id, Path(args.csv_path).read_text(encoding="utf-8-sig"),

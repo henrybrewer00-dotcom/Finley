@@ -12,7 +12,7 @@ import re
 from typing import Any, Callable, Protocol
 
 from .db import DB
-from .pricing import cost_usd
+from .pricing import WEB_SEARCH_USD, cost_usd
 
 # Models with server-side refusal fallback. Haiku 5.5 has none, so it is left out.
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-sonnet-5-5"}
@@ -25,6 +25,11 @@ class RefusalError(RuntimeError):
 class LLMClient(Protocol):
     def json(self, task: str, *, model: str, system: str, user: str, schema: dict,
              effort: str | None = None, db: DB | None = None, **ids: Any) -> dict: ...
+
+    def search(self, task: str, *, model: str, system: str, user: str, max_uses: int = 2,
+               blocked_domains: list[str] | None = None, db: DB | None = None, **ids: Any) -> dict:
+        """Run a prompt with web search. Returns {"text", "results": [{"url", "title"}]}."""
+        ...
 
 
 class AnthropicLLM:
@@ -74,6 +79,53 @@ class AnthropicLLM:
         text = next(b.text for b in response.content if b.type == "text")
         return json.loads(text)
 
+    def search(self, task: str, *, model: str, system: str, user: str, max_uses: int = 2,
+               blocked_domains: list[str] | None = None, db: DB | None = None, **ids: Any) -> dict:
+        tool: dict[str, Any] = {"name": "web_search", "max_uses": max_uses,
+                                # Haiku takes the basic tool; Sonnet and Opus get dynamic filtering.
+                                "type": "web_search_20250305" if "haiku" in model else "web_search_20260209"}
+        if blocked_domains:
+            tool["blocked_domains"] = blocked_domains[:64]
+        messages: list[Any] = [{"role": "user", "content": user}]
+        texts: list[str] = []
+        results: list[dict] = []
+        for _ in range(4):  # resume if the server-side search loop pauses (and one model switch)
+            try:
+                response = self.client.messages.create(
+                    model=model, max_tokens=8000, messages=messages, tools=[tool],
+                    system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
+                    output_config={"effort": "low"},
+                )
+            except self._anthropic.BadRequestError:
+                if "haiku" not in model:
+                    raise
+                # This Haiku can't take the web search tool on this account: use Sonnet instead.
+                model, tool["type"] = "claude-sonnet-5-5", "web_search_20260209"
+                continue
+            usage = response.usage
+            searches = getattr(getattr(usage, "server_tool_use", None), "web_search_requests", 0) or 0
+            cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+            served_by = getattr(response, "model", model) or model
+            if db is not None:
+                db.log_event(
+                    "llm_call", model=served_by, input_tokens=usage.input_tokens,
+                    output_tokens=usage.output_tokens, cache_read_tokens=cache_read,
+                    cost_usd=cost_usd(served_by, usage.input_tokens, usage.output_tokens, cache_read)
+                    + searches * WEB_SEARCH_USD,
+                    data={"task": task, "stop_reason": response.stop_reason, "web_searches": searches}, **ids,
+                )
+            for block in response.content:
+                if block.type == "text":
+                    texts.append(block.text)
+                elif block.type == "web_search_tool_result" and isinstance(block.content, list):
+                    results += [{"url": r.url, "title": r.title} for r in block.content]
+            if response.stop_reason == "refusal":
+                raise RefusalError(f"{task}: model declined the request")
+            if response.stop_reason != "pause_turn":
+                break
+            messages = [*messages, {"role": "assistant", "content": response.content}]
+        return {"text": "\n".join(texts), "results": results}
+
 
 class FakeLLM:
     """Deterministic stand-in for tests and `--dry-run`. Costs nothing, calls nothing.
@@ -87,6 +139,13 @@ class FakeLLM:
 
     def json(self, task: str, *, model: str, system: str, user: str, schema: dict,
              effort: str | None = None, db: DB | None = None, **ids: Any) -> dict:
+        self.calls.append((task, user))
+        if db is not None:
+            db.log_event("llm_call", model=model, data={"task": task, "fake": True}, **ids)
+        return self.responders[task](user)
+
+    def search(self, task: str, *, model: str, system: str, user: str, max_uses: int = 2,
+               blocked_domains: list[str] | None = None, db: DB | None = None, **ids: Any) -> dict:
         self.calls.append((task, user))
         if db is not None:
             db.log_event("llm_call", model=model, data={"task": task, "fake": True}, **ids)
@@ -129,7 +188,37 @@ def _fake_judge(user: str) -> dict:
             "issues": [], "verdict": "send"}
 
 
+def _fake_source_plan(user: str) -> dict:
+    return {"queries": ["family-owned plumbing company Austin TX", "emergency plumber Round Rock TX"],
+            "target_titles": ["Owner", "General Manager"], "company_type": "local plumbing company",
+            "exclusions": ["national franchises"]}
+
+
+def _fake_source_search(user: str) -> dict:
+    return {"text": "Rivera Plumbing | riveraplumbing.com | family-owned Austin plumber\n"
+                    "Lone Star Drains | lonestardrains.com | 24/7 emergency plumbing in Round Rock",
+            "results": [{"url": "https://riveraplumbing.com/", "title": "Rivera Plumbing"},
+                        {"url": "https://www.lonestardrains.com/about", "title": "Lone Star Drains"}]}
+
+
+def _fake_source_pick(user: str) -> dict:
+    return {"companies": [
+        {"name": "Rivera Plumbing", "domain": "riveraplumbing.com", "why_fit": "Family-owned Austin plumber."},
+        {"name": "Lone Star Drains", "domain": "lonestardrains.com", "why_fit": "Emergency plumbing in Round Rock."},
+    ]}
+
+
+def _fake_source_contact(user: str) -> dict:
+    m = re.search(r'Emails found: \["([^"]+)"', user)
+    return {"email": m.group(1) if m else "", "first_name": "Sam", "last_name": "Rivera",
+            "title": "Owner", "company": ""}
+
+
 DEFAULT_FAKES: dict[str, Callable[[str], dict]] = {
+    "source_plan": _fake_source_plan,
+    "source_search": _fake_source_search,
+    "source_pick": _fake_source_pick,
+    "source_contact": _fake_source_contact,
     "score": _fake_score,
     "research": _fake_research,
     "pick_format": _fake_pick,

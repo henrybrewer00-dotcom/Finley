@@ -11,8 +11,8 @@ import os
 import secrets
 from pathlib import Path
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 
@@ -25,6 +25,7 @@ from .pipeline import run_campaign
 from .scoring import score_band
 from .sender import OUTCOMES, SendError, record_outcome, send_email
 from .sources.csv_import import import_csv
+from .sourcing import fake_fetch, find_leads
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 templates.env.filters["fromjson"] = lambda s: json.loads(s or "{}")
@@ -32,7 +33,8 @@ templates.env.globals["band"] = score_band
 security = HTTPBasic(auto_error=False)
 
 
-def create_app(settings: Settings | None = None, db: DB | None = None, llm=None, fetch=None) -> FastAPI:
+def create_app(settings: Settings | None = None, db: DB | None = None, llm=None, fetch=None,
+               sourcing_fetch=None) -> FastAPI:
     settings = settings or Settings.from_env()
     db = db or DB(settings.db_path)
     password = os.environ.get("FINLEY_PASSWORD", "")
@@ -95,6 +97,47 @@ def create_app(settings: Settings | None = None, db: DB | None = None, llm=None,
             return back(cid, ", ".join(f"{v} {k.replace('_', ' ')}" for k, v in counts.items()))
         background.add_task(run_campaign, db, client, settings, cid, **kwargs)
         return back(cid, f"Running up to {limit} leads. Refresh to see drafts.")
+
+    def source(cid: int, description: str, limit: int, exclude_domains: str, dry_run: bool, api_key: str) -> dict:
+        if db.one("SELECT 1 FROM campaigns WHERE id = ?", cid) is None:
+            raise HTTPException(404)
+        if not (dry_run or api_key or os.environ.get("ANTHROPIC_API_KEY") or llm):
+            raise ValueError("Add your Anthropic API key, or tick Dry run.")
+        client = llm or make_llm(dry_run=dry_run, api_key=api_key.strip())
+        offline = dry_run and not llm
+        extra = {"fetch": fake_fetch, "mx_check": lambda d: True, "email_finder": lambda d: []} if offline else {}
+        if sourcing_fetch and not offline:
+            extra["fetch"] = sourcing_fetch
+        # Serverless requests are cut off after about a minute, so stop starting new work early there.
+        budget = 50.0 if os.environ.get("VERCEL") else 0
+        return find_leads(db, client, settings, cid, description=description, limit=limit,
+                          exclude_domains=exclude_domains, time_budget_s=budget, **extra)
+
+    @app.post("/api/campaigns/{cid}/find-leads", dependencies=[Depends(auth)])
+    def find_leads_api(cid: int, body: dict = Body(default={})):
+        """Find leads from a description of the ideal customer. JSON in, JSON out.
+
+        Body: {"description": str (defaults to the campaign ICP), "limit": int = 25,
+               "exclude_domains": str, "dry_run": bool, "api_key": str (this request only, never stored)}.
+        Returns {"counts", "plan", "cost_usd", "seconds", "leads"}.
+        """
+        try:
+            return source(cid, str(body.get("description") or ""), int(body.get("limit") or 25),
+                          str(body.get("exclude_domains") or ""), bool(body.get("dry_run")),
+                          str(body.get("api_key") or ""))
+        except ValueError as e:
+            return JSONResponse({"error": str(e)}, status_code=400)
+
+    @app.post("/campaigns/{cid}/find-leads", dependencies=[Depends(auth)])
+    def find_leads_form(cid: int, description: str = Form(""), limit: int = Form(25),
+                        exclude_domains: str = Form(""), dry_run: bool = Form(False), api_key: str = Form("")):
+        try:
+            r = source(cid, description, limit, exclude_domains, dry_run, api_key)
+        except ValueError as e:
+            return back(cid, str(e))
+        c = r["counts"]
+        return back(cid, f"Found {c['companies_found']} companies, added {c['leads_added']} leads "
+                         f"(${r['cost_usd']:.2f}). {c['no_email']} had no public email.")
 
     @app.post("/emails/{eid}/edit", dependencies=[Depends(auth)])
     def edit(eid: int, subject: str = Form(...), body: str = Form(...)):
