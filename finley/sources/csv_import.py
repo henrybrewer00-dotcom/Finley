@@ -51,12 +51,13 @@ def import_csv(db: DB, campaign_id: int, text: str, source: str = "csv") -> dict
 
     counts = {"imported": 0, "duplicate": 0, "invalid_email": 0, "suppressed": 0}
     known = set(mapping.values())
+    owner = db.campaign_user(campaign_id)
     for raw in reader:
         email = (raw.get(mapping["email"]) or "").strip().lower()
         if not EMAIL_RE.match(email):
             counts["invalid_email"] += 1
             continue
-        if db.is_suppressed(email):
+        if db.is_suppressed(email, owner):
             counts["suppressed"] += 1
             continue
         row = {f: (raw.get(h) or "").strip() for f, h in mapping.items() if f != "full_name"}

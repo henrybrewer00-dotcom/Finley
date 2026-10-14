@@ -25,7 +25,7 @@ def campaign_metrics(db: DB, campaign_id: int) -> dict:
     meetings = ev.get("meeting_booked", 0)
     cost = float(db.one("SELECT COALESCE(SUM(cost_usd), 0) FROM events WHERE campaign_id = ?", campaign_id)[0])
     cost_by_task = {r["task"]: round(r["usd"], 4) for r in db.all(
-        "SELECT json_extract(data_json, '$.task') AS task, SUM(cost_usd) AS usd FROM events "
+        f"SELECT {db.json_get('data_json', 'task')} AS task, SUM(cost_usd) AS usd FROM events "
         "WHERE campaign_id = ? AND kind = 'llm_call' GROUP BY task", campaign_id)}
 
     def rate(n: int, d: int) -> float | None:

@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from finley.config import Settings
@@ -12,9 +14,22 @@ def settings():
                     physical_address="1 Main St, Austin, TX")
 
 
-@pytest.fixture
-def db():
-    return DB(":memory:")
+# Set FINLEY_TEST_DATABASE_URL to a scratch Postgres database to run every DB test on Postgres too.
+PG_URL = os.environ.get("FINLEY_TEST_DATABASE_URL", "")
+
+
+@pytest.fixture(params=["sqlite"] + (["postgres"] if PG_URL else []))
+def db(request):
+    if request.param == "sqlite":
+        yield DB(":memory:")
+        return
+    import psycopg
+
+    with psycopg.connect(PG_URL, autocommit=True) as c:
+        c.execute("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+    d = DB(PG_URL)
+    yield d
+    d.conn.close()
 
 
 @pytest.fixture
