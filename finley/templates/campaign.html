@@ -27,6 +27,7 @@
     <div><label>Minimum score to write (0-100)</label><input type="number" name="min_score" value="50" min="0" max="100"></div>
     <div><label>Exclude domains <span class="muted">(customers, competitors)</span></label><input type="text" name="exclude_domains" placeholder="acme.com, rival.io"></div>
   </div>
+  <label>Your Anthropic API key <span class="muted">(used for this run only, never stored; leave blank if set on the server)</span></label><input type="password" name="api_key" autocomplete="off" placeholder="sk-ant-...">
   <p><label style="display:inline;font-weight:400"><input type="checkbox" name="dry_run" value="true"> Dry run (fake AI, no cost)</label></p>
   <button>Run</button>
 </form>

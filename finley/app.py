@@ -82,10 +82,18 @@ def create_app(settings: Settings | None = None, db: DB | None = None, llm=None,
 
     @app.post("/campaigns/{cid}/run", dependencies=[Depends(auth)])
     def run(cid: int, background: BackgroundTasks, limit: int = Form(25), min_score: float = Form(50),
-            exclude_domains: str = Form(""), dry_run: bool = Form(False)):
-        client = llm or make_llm(dry_run=dry_run)
-        background.add_task(run_campaign, db, client, settings, cid, limit=limit, min_score=min_score,
-                            exclude_domains=exclude_domains, **({"fetch": fetch} if fetch else {}))
+            exclude_domains: str = Form(""), dry_run: bool = Form(False), api_key: str = Form("")):
+        # A key typed into the form is used for this run only and never stored.
+        if not (dry_run or api_key or os.environ.get("ANTHROPIC_API_KEY") or llm):
+            return back(cid, "Add your Anthropic API key, or tick Dry run.")
+        client = llm or make_llm(dry_run=dry_run, api_key=api_key.strip())
+        kwargs = dict(limit=limit, min_score=min_score, exclude_domains=exclude_domains,
+                      **({"fetch": fetch} if fetch else {}))
+        if os.environ.get("VERCEL"):
+            # Serverless functions stop after the response, so run inline there.
+            counts = run_campaign(db, client, settings, cid, **kwargs)
+            return back(cid, ", ".join(f"{v} {k.replace('_', ' ')}" for k, v in counts.items()))
+        background.add_task(run_campaign, db, client, settings, cid, **kwargs)
         return back(cid, f"Running up to {limit} leads. Refresh to see drafts.")
 
     @app.post("/emails/{eid}/edit", dependencies=[Depends(auth)])

@@ -49,7 +49,8 @@ class Settings:
         _load_dotenv()
         env = os.environ
         return cls(
-            db_path=env.get("FINLEY_DB", cls.db_path),
+            # Serverless hosts (Vercel) only allow writes under /tmp, and it is wiped between instances.
+            db_path=env.get("FINLEY_DB", "/tmp/finley.db" if env.get("VERCEL") else cls.db_path),
             scorer_model=env.get("FINLEY_SCORER_MODEL", cls.scorer_model),
             research_model=env.get("FINLEY_RESEARCH_MODEL", cls.research_model),
             judge_model=env.get("FINLEY_JUDGE_MODEL", cls.judge_model),

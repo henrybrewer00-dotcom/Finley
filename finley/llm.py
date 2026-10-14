@@ -138,7 +138,7 @@ DEFAULT_FAKES: dict[str, Callable[[str], dict]] = {
 }
 
 
-def make_llm(dry_run: bool = False) -> LLMClient:
+def make_llm(dry_run: bool = False, api_key: str | None = None) -> LLMClient:
     if dry_run or os.environ.get("FINLEY_FAKE_LLM") == "1":
         return FakeLLM()
-    return AnthropicLLM()
+    return AnthropicLLM(api_key=api_key or None)

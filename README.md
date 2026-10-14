@@ -39,6 +39,10 @@ finley run 1 --limit 25 --min-score 50          # add --dry-run to try it with f
 finley metrics 1
 ```
 
+## Deploy to Vercel (free)
+
+The repo includes `main.py` and `requirements.txt`, so importing it into Vercel works with no settings. On Vercel, each person pastes their own Anthropic key on the Run form; it's used for that run only and never stored. Note that serverless storage is temporary: the SQLite file lives in `/tmp` and resets when the instance restarts, so treat a Vercel deploy as a demo until a hosted database is added.
+
 ## Cost
 
 Finley calls Claude with **your** API key, so you pay Anthropic's list prices and nothing else. If you're on a Claude Max or Team plan, its monthly API credits cover this. Rough AI cost per lead fully worked (research, score, write, judge): about 1 to 2 cents, mostly the Opus email. Leads that fail the free filters or score below your threshold never reach Opus. Every call's real cost is in the event log; see `finley metrics`.
