@@ -35,6 +35,8 @@ class Settings:
     # Writing gates
     judge_min_score: float = 4.0
     max_rewrites: int = 2
+    sequence_length: int = 4        # emails per lead; the last one uses a "final" format
+    learn_formats: bool = True      # choose among fitting formats by real reply rates
     # Sending
     smtp_host: str = ""
     smtp_port: int = 587
@@ -68,6 +70,8 @@ class Settings:
             sourcing_searches_per_query=int(env.get("FINLEY_SEARCHES_PER_QUERY", cls.sourcing_searches_per_query)),
             judge_min_score=float(env.get("FINLEY_JUDGE_MIN_SCORE", cls.judge_min_score)),
             max_rewrites=int(env.get("FINLEY_MAX_REWRITES", cls.max_rewrites)),
+            sequence_length=int(env.get("FINLEY_SEQUENCE_LENGTH", cls.sequence_length)),
+            learn_formats=env.get("FINLEY_LEARN_FORMATS", "1") != "0",
             smtp_host=env.get("SMTP_HOST", ""),
             smtp_port=int(env.get("SMTP_PORT", 587)),
             smtp_user=env.get("SMTP_USER", ""),

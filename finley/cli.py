@@ -1,4 +1,4 @@
-"""Command line: `finley serve | new | find | import | run | metrics | bench`."""
+"""Command line: `finley serve | new | find | import | run | metrics | bench | formats`."""
 
 from __future__ import annotations
 
@@ -53,6 +53,14 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--dry-run", action="store_true")
     b.add_argument("--out", default="bench/results")
 
+    f = sub.add_parser("formats", help="list formats, or mine new ones from emails that got replies")
+    fsub = f.add_subparsers(dest="formats_cmd", required=True)
+    fsub.add_parser("list", help="print the format library")
+    fm = fsub.add_parser("mine", help="extract formats from a text file of winning emails (split by ---)")
+    fm.add_argument("emails_path")
+    fm.add_argument("--out", default="my_formats.json", help="JSON file to write; load it with FINLEY_FORMATS_FILE")
+    fm.add_argument("--dry-run", action="store_true")
+
     args = p.parse_args(argv)
     settings = Settings.from_env()
 
@@ -65,6 +73,18 @@ def main(argv: list[str] | None = None) -> int:
         from .bench import run_bench
         summary = run_bench(make_llm(args.dry_run), settings, limit=args.limit, out_dir=args.out)
         print(json.dumps(summary, indent=2))
+        return 0
+
+    if args.cmd == "formats":
+        from .formats import FORMATS
+        if args.formats_cmd == "list":
+            for fmt in FORMATS.values():
+                print(f"{fmt.key:16} {fmt.step:9} {fmt.words[0]}-{fmt.words[1]:<4} {fmt.name}: {fmt.use_when}")
+            return 0
+        from .mine import mine_formats
+        mined = mine_formats(make_llm(args.dry_run), settings, Path(args.emails_path).read_text())
+        Path(args.out).write_text(json.dumps(mined, indent=2))
+        print(f"Wrote {len(mined)} new formats to {args.out}. Load them with FINLEY_FORMATS_FILE={args.out}")
         return 0
 
     db = DB(settings.db_path)

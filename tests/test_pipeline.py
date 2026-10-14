@@ -67,7 +67,8 @@ def test_disqualified_lead_gets_no_email(db, settings, campaign_id, csv_text):
 
 
 def test_bench_dry_run(tmp_path, settings):
-    assert len(load_cases()) == 20
+    assert len(load_cases()) >= 30
     summary = run_bench(FakeLLM(), settings, limit=3, out_dir=str(tmp_path))
     assert summary["cases"] == 3 and summary["unbacked_claim_rate"] == 0
+    assert "by_format" in summary and "failure_kinds" in summary and "first_try_rate" in summary
     assert (tmp_path / summary["report"].split("/")[-1]).exists()

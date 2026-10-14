@@ -2,7 +2,7 @@
 
 **Open-source lead finder, lead scorer and cold email campaign manager. Bring your own Claude key; pay cents, not hundreds a month.**
 
-Finley finds leads for you from a plain-English description of your ideal customer (or takes your own list), researches each one, scores it against your ideal customer, and writes a cold email in one of ten proven formats using Claude Opus 5.5. Every email has to pass automatic quality checks before you can send it from your own inbox. Every step logs what it cost and what happened, so you can see cost per meeting, which formats win, and whether high-scoring leads really reply more.
+Finley finds leads for you from a plain-English description of your ideal customer (or takes your own list), researches each one, scores it against your ideal customer, and writes a cold email in one of 26 researched formats using Claude Opus 5.5. Every email has to pass automatic quality checks before you can send it from your own inbox. Every step logs what it cost and what happened, so you can see cost per meeting, which formats win, and whether high-scoring leads really reply more.
 
 > Status: MVP. Lead finding, CSV import, research, scoring, writing, review, sending and metrics work today. Multi-step sequences and automatic reply detection are next.
 
@@ -12,7 +12,7 @@ Finley finds leads for you from a plain-English description of your ideal custom
 2. **Research.** Finley reads each company's homepage and About page, and Claude Haiku pulls out up to five verifiable facts, each with its source.
 3. **Score.** Free hard filters (role addresses, excluded domains) run first. Then Haiku rates fit, need, timing and reachability from 1 to 5, with a reason for each, and combines them into a 0-100 score.
 4. **Write.** For leads above your threshold, Finley picks the best format for what the research found, then Claude Opus 5.5 writes the email in your voice.
-5. **Gate.** Each draft must pass checks for length, links, spam phrases, placeholders, reading level, subject line, and **every claim tracing back to a research fact**. A Haiku judge then scores relevance, specificity, clarity and tone. Failures go back to the writer with the reasons, up to two rewrites. Anything still failing is flagged for you instead of sent.
+5. **Gate.** Each draft must pass checks for length, links, spam phrases, AI-sounding phrases, an opener about the reader rather than the sender, paragraph length, number of questions, placeholders, reading level, subject line, and **every claim tracing back to a research fact**. A Haiku judge then scores relevance, specificity, clarity and tone. Failures go back to the writer with the reasons, up to two rewrites. Anything still failing is flagged for you instead of sent.
 6. **Review and send** from the dashboard: edit, approve one by one or all that passed, then send from your own Gmail/Outlook/SMTP inbox with a daily cap and a one-click unsubscribe header.
 7. **Measure.** Log replies and meetings with one click. The dashboard shows reply rate by email format and by score band, plus AI cost per lead and per meeting.
 
@@ -36,7 +36,11 @@ Or over HTTP: `POST /api/campaigns/{id}/find-leads` with JSON `{"description": "
 
 ## The format library
 
-Every email follows one named format from [`finley/formats.py`](finley/formats.py): Quick question, Trigger, Problem-Agitate-Solve, Before-After-Bridge, Relevance-Reward-Request, Peer proof, Give first, Owner-direct (local), Right person?, and Breakup. A format only becomes available when the research supports it. For example, Trigger needs a real trigger event, and Before-After-Bridge needs a case study you supplied. Add your own with `formats.load_extra("my_formats.json")`.
+Every email follows one named format from [`finley/formats.py`](finley/formats.py). There are 26, covering first emails, follow-ups and the final email, and each one records the principle it is built on. [docs/cold-email-playbook.md](docs/cold-email-playbook.md) has the research behind them and the rules the writer follows. Run `finley formats list` to see them all.
+
+A format only becomes available when the research supports it. For example, Trigger needs a real trigger event, and Before-After-Bridge needs a case study you supplied. Haiku ranks the formats that fit each lead; once you have reply data, Finley favors the formats that actually get positive replies (Thompson sampling), while still trying the others.
+
+To add your own, put emails that got replies in a text file separated by `---` lines and run `finley formats mine winners.txt`. Opus extracts their shape into `my_formats.json`; load it with `FINLEY_FORMATS_FILE=my_formats.json`.
 
 ## Quick start
 
@@ -81,11 +85,11 @@ To trade quality for cost, set `FINLEY_WRITER_MODEL=claude-sonnet-5-5` or lower 
 ## Email Bench
 
 ```bash
-finley bench               # runs the writer on 20 fixed lead profiles; writes bench/results/<time>.md
+finley bench               # runs the writer on 30 fixed lead profiles, follow-ups included; writes bench/results/<time>.md
 finley bench --dry-run     # same, with fake AI (checks the plumbing, costs nothing)
 ```
 
-Bench reports the pass rate, the **unbacked-claim rate** (target 0), the average judge score, words, rewrite attempts, cost and which formats were used. Run it before and after any prompt, model or format change.
+Bench reports the pass rate, the **unbacked-claim rate** (target 0), the average judge score, words, rewrite attempts, first-try pass rate, cost, results per format, and which checks fail most often. Run it before and after any prompt, model or format change.
 
 ## Configuration
 
