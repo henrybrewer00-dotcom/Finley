@@ -11,6 +11,7 @@ from typing import Any, Iterator
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS campaigns (
     id INTEGER PRIMARY KEY,
+    user_id INTEGER,              -- owner when accounts are on; NULL on a single-user install
     name TEXT NOT NULL,
     offer TEXT NOT NULL,          -- what we sell, in the user's words
     icp TEXT NOT NULL,            -- ideal customer profile, plain English
@@ -89,6 +90,9 @@ class DB:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        cols = {r[1] for r in self.conn.execute("PRAGMA table_info(campaigns)")}
+        if "user_id" not in cols:  # databases created before accounts existed
+            self.conn.execute("ALTER TABLE campaigns ADD COLUMN user_id INTEGER")
 
     @contextmanager
     def tx(self) -> Iterator[sqlite3.Connection]:

@@ -1,0 +1,105 @@
+{% extends "app/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if user and user.name and user.name != "You" %}Welcome back, {{ user.name.split()[0] }}{% else %}Dashboard{% endif %}</h1>
+    <p>Your pipeline at a glance: leads found, emails written, and what's working.</p>
+  </div>
+  <div class="row">
+    <a class="btn" href="/app/campaigns/new">{{ ui.icon("plus") }}New campaign</a>
+    <a class="btn btn-primary" href="/app/find">{{ ui.icon("search") }}Find leads</a>
+  </div>
+</div>
+
+<div class="kpis">
+  {{ ui.kpi("Leads", ov.leads, "across " ~ ov.campaigns|length ~ " campaign" ~ ("" if ov.campaigns|length == 1 else "s"), "users") }}
+  {{ ui.kpi("Emails written", ov.drafted, (ov.to_review ~ " waiting for review") if ov.to_review else "researched and personalized", "edit") }}
+  {{ ui.kpi("Sent", ov.sent, "from your own inbox", "send") }}
+  {{ ui.kpi("Reply rate", ov.reply_rate|pct, (ov.replies ~ " replies") if ov.sent else "no sends yet", "reply") }}
+  {{ ui.kpi("Meetings", ov.meetings, "booked from replies", "calendar") }}
+  {{ ui.kpi("AI spend", ov.cost|money, ("$" ~ ov.cost_per_meeting ~ " per meeting") if ov.cost_per_meeting else "billed to your own key", "dollar") }}
+</div>
+
+<div class="grid grid-main" style="margin-top:20px">
+  <div class="stack" style="--gap:20px">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Activity</h2><p>Emails written and sent, last 14 days</p></div>
+        <div class="legend"><span><i style="background:var(--brand-soft);border:1px solid var(--border-strong)"></i>Written</span><span><i style="background:var(--brand)"></i>Sent</span></div>
+      </div>
+      <div class="card-body">
+        <div class="bars" role="img" aria-label="Bar chart of emails written and sent per day">
+          {% for d in ov.activity %}
+          <div class="bar-col" title="{{ d.label }}: {{ d.drafted }} written, {{ d.sent }} sent">
+            <div class="bar-stack">
+              <div class="bar drafted" style="height:{{ d.h_drafted }}%"></div>
+              <div class="bar sent" style="height:{{ d.h_sent }}%"></div>
+            </div>
+            <div class="bar-label">{{ d.label if loop.index0 % 2 == 1 else "" }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Campaigns</h2><p>Each campaign is one offer to one kind of customer.</p></div>
+        <a class="btn btn-sm" href="/app/campaigns">View all</a>
+      </div>
+      {% if ov.campaigns %}
+      <div class="table-wrap"><table class="table">
+        <thead><tr><th>Campaign</th><th class="right">Leads</th><th class="right">Written</th><th class="right">To review</th><th class="right">Sent</th></tr></thead>
+        <tbody>
+        {% for c in ov.campaigns[:6] %}
+        <tr>
+          <td><a class="cell-main" href="/app/campaigns/{{ c.id }}">{{ c.name }}</a><div class="cell-sub truncate" style="max-width:360px">{{ c.icp }}</div></td>
+          <td class="right">{{ c.n_leads }}</td><td class="right">{{ c.n_drafted }}</td>
+          <td class="right">{% if c.n_review %}<span class="badge badge-amber">{{ c.n_review }}</span>{% else %}0{% endif %}</td>
+          <td class="right">{{ c.n_sent }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table></div>
+      {% else %}
+      {{ ui.empty("send", "No campaigns yet", "Start by finding leads that match your ideal customer, then Finley writes a researched email for each one.", "Create a campaign", "/app/campaigns/new") }}
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="stack" style="--gap:20px">
+    {% if steps_done < steps|length %}
+    <div class="card">
+      <div class="card-head" style="border-bottom:0">
+        <div><h2>Get set up</h2><p>{{ steps_done }} of {{ steps|length }} done</p></div>
+      </div>
+      <div style="padding:0 20px 14px"><div class="progress"><span style="width:{{ (100 * steps_done / steps|length)|round|int }}%"></span></div></div>
+      <div class="checklist">
+        {% for s in steps %}
+        <a class="check-item {{ 'done' if s.done }}" href="{{ s.href }}">
+          <span class="check-dot">{% if s.done %}{{ ui.icon("check") }}{% endif %}</span>
+          <span><span class="check-title">{{ s.label }}</span><br><span class="hint">{{ s.hint }}</span></span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if ov.to_review %}
+    <div class="card card-pad">
+      <div class="row" style="--gap:12px">
+        <div class="empty-icon" style="margin:0">{{ ui.icon("inbox") }}</div>
+        <div class="grow"><h3>{{ ov.to_review }} email{{ "s" if ov.to_review != 1 }} to review</h3><p class="muted small">Approve, edit or reject before anything sends.</p></div>
+      </div>
+      <a class="btn btn-primary btn-block" style="margin-top:14px" href="/app/review">Start reviewing</a>
+    </div>
+    {% endif %}
+
+    <div class="card card-pad">
+      <h3>How Finley keeps costs low</h3>
+      <p class="muted small" style="margin-top:6px">Every AI call runs on your own Anthropic key. Cheap models do research and scoring; the best model only writes for leads worth emailing. Typical cost: about 1 to 2 cents per lead.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

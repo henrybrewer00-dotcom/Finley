@@ -1,0 +1,30 @@
+{% import "_ui.html" as ui %}
+{% for p in prospects %}
+<tr>
+  <td>{% if p.email and not p.added_campaign_id %}<input type="checkbox" name="prospect_ids" value="{{ p.id }}" aria-label="Select {{ p.company }}">{% endif %}</td>
+  <td style="min-width:200px">
+    <div class="cell-main">{{ p.company }}</div>
+    <div class="cell-sub">{% if p.website %}<a href="{{ p.website }}" target="_blank" rel="noopener">{{ p.website|replace("https://", "")|replace("http://", "")|replace("www.", "")|trim("/") }}</a>{% endif %}{% if p.location %} · {{ p.location }}{% endif %}</div>
+  </td>
+  <td>
+    {% if p.contact_name %}<div>{{ p.contact_name }}</div><div class="cell-sub">{{ p.contact_title }}</div>
+    {% elif p.status in ("new", "enriching") %}<span class="row faint small" style="--gap:6px"><span class="spinner"></span>Looking…</span>
+    {% else %}<span class="faint">–</span>{% endif %}
+  </td>
+  <td class="nowrap">
+    {% if p.email %}<div>{{ p.email }}</div>
+      {% set es = {"verified": ("badge-green", "Verified"), "found": ("badge-blue", "On website"), "guessed": ("badge-amber", "Pattern guess"), "generic": ("", "Shared inbox")}.get(p.email_status, ("", p.email_status or "")) %}
+      {% if es[1] %}<span class="badge {{ es[0] }}" style="margin-top:3px">{{ es[1] }}</span>{% endif %}
+    {% elif p.status in ("new", "enriching") %}<span class="faint small">…</span>
+    {% else %}<span class="faint small">Not found</span>{% endif %}
+    {% if p.added_campaign_id %}<div><span class="badge badge-violet" style="margin-top:3px">In campaign</span></div>{% endif %}
+  </td>
+  <td style="max-width:380px">
+    <div class="small">{{ p.why }}</div>
+    {% if p.signals %}<div class="row" style="--gap:4px;margin-top:5px">{% for s in p.signals %}<span class="badge badge-green">{{ ui.icon("zap") }}{{ s }}</span>{% endfor %}</div>{% endif %}
+  </td>
+  <td>{{ ui.score(p.fit) }}</td>
+</tr>
+{% else %}
+<tr><td colspan="6"><div class="empty" style="padding:32px"><p class="faint" style="margin:0 auto">Matches will appear here as Finley finds them.</p></div></td></tr>
+{% endfor %}

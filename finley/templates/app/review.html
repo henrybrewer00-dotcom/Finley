@@ -1,0 +1,89 @@
+{% extends "app/base.html" %}
+{% block title %}Review{% endblock %}
+{% block main %}
+<div class="page" style="max-width:none;padding-bottom:24px">
+  {% if msg or err %}<div class="stack" style="margin-bottom:16px">{{ ui.flash(msg, err) }}</div>{% endif %}
+  <div class="page-head" style="margin-bottom:16px">
+    <div><h1>Review</h1><p>Read, tweak and approve. Nothing is sent until you say so.</p></div>
+    <span class="badge {{ 'badge-amber' if queue else 'badge-green' }}">{{ queue|length }} in queue</span>
+  </div>
+
+  {% if not e %}
+  <div class="card">{{ ui.empty("inbox", "You're all caught up", "New drafts land here after Finley writes them. Open a campaign and press Write emails to make more.", "Go to campaigns", "/app/campaigns") }}</div>
+  {% else %}
+  {% set g = e.gate_json|fromjson %}{% set r = e.research_json|fromjson %}{% set s = e.score_json|fromjson %}
+  <div class="card review">
+    <div class="review-list">
+      {% for q in queue %}
+      <a class="review-item {{ 'active' if q.id == e.id }}" href="?id={{ q.id }}">
+        <div class="row between" style="--gap:6px"><span class="who truncate grow">{{ q.first_name }} {{ q.last_name }} · {{ q.company }}</span>{% if q.status == "needs_review" %}<span class="badge badge-amber">Check</span>{% elif q.status == "approved" %}<span class="badge badge-blue">Approved</span>{% endif %}</div>
+        <div class="subj truncate">{{ q.subject }}</div>
+        <div class="faint small truncate">{{ q.campaign_name }}</div>
+      </a>
+      {% endfor %}
+    </div>
+
+    <div class="review-pane">
+      <div class="grid" style="grid-template-columns:minmax(0,1fr) 280px;gap:24px;align-items:start" id="review-grid">
+        <div class="stack" style="--gap:14px">
+          {% if e.status == "needs_review" %}
+          <div class="alert alert-warn">{{ ui.icon("alert") }}<div><b>Needs a look.</b> {{ (g.failures or [])|join("; ") or "This draft didn't clear the quality bar after rewrites." }}</div></div>
+          {% endif %}
+          <form method="post" action="/app/emails/{{ e.id }}/edit?next=/app/review%3Fid%3D{{ e.id }}" class="email">
+            <div class="email-meta"><b>To</b><span>{{ e.first_name }} {{ e.last_name }} &lt;{{ e.to_email }}&gt;{% if e.title %} · {{ e.title }}{% endif %}</span><b>Format</b><span>{{ formats[e.format_key].name if e.format_key in formats else e.format_key }}</span></div>
+            <input class="email-subject" name="subject" value="{{ e.subject }}" aria-label="Subject">
+            <textarea class="email-body" name="body" rows="12" aria-label="Body">{{ e.body }}</textarea>
+            <div class="card-foot row between" style="border-radius:0">
+              <span class="faint small">{% if g.metrics %}{{ g.metrics.words }} words · reading grade {{ g.metrics.reading_grade }}{% endif %}</span>
+              <button class="btn btn-sm">{{ ui.icon("check") }}Save edits</button>
+            </div>
+          </form>
+          <div class="row">
+            {% if e.status != "approved" %}
+            <form class="inline" method="post" action="/app/emails/{{ e.id }}/status?next=/app/review{{ '%3Fid%3D' ~ next_id if next_id else '' }}"><input type="hidden" name="status" value="approved"><button class="btn btn-primary">{{ ui.icon("check") }}Approve{{ " & next" if next_id }}</button></form>
+            {% else %}
+            <form class="inline" method="post" action="/app/emails/{{ e.id }}/status?next=/app/review%3Fid%3D{{ e.id }}"><input type="hidden" name="status" value="draft"><button class="btn">Undo approval</button></form>
+            {% endif %}
+            <form class="inline" method="post" action="/app/emails/{{ e.id }}/status?next=/app/review{{ '%3Fid%3D' ~ next_id if next_id else '' }}"><input type="hidden" name="status" value="rejected"><button class="btn btn-ghost btn-danger">{{ ui.icon("x") }}Reject</button></form>
+            {% if next_id %}<a class="btn btn-ghost" href="?id={{ next_id }}">Skip {{ ui.icon("arrow-right") }}</a>{% endif %}
+          </div>
+        </div>
+
+        <aside class="stack" style="--gap:14px">
+          <div class="card card-pad stack" style="--gap:10px">
+            <div class="row between"><h3>Lead score</h3>{{ ui.score(e.score) }}</div>
+            {% if s.reasons %}
+            {% for f, label in [("fit", "Fit"), ("need", "Need"), ("timing", "Timing"), ("reachability", "Reach")] %}
+            <div class="meter" title="{{ s.reasons[f] }}"><span class="muted">{{ label }}</span><div class="progress"><span style="width:{{ (s[f] or 0) * 20 }}%"></span></div><b>{{ s[f] }}</b></div>
+            {% endfor %}
+            <p class="faint small">{{ s.reasons.fit }}</p>
+            {% endif %}
+          </div>
+          <div class="card card-pad stack" style="--gap:10px">
+            <h3>What Finley found</h3>
+            {% if r.summary %}<p class="muted small">{{ r.summary }}</p>{% endif %}
+            <div class="facts">
+              {% for f in r.facts or [] %}<div class="fact"><span class="id">{{ f.id }}</span><span>{{ f.text }}</span></div>{% else %}<span class="faint small">No research facts.</span>{% endfor %}
+            </div>
+            {% if e.website %}<a class="small" href="{{ e.website }}" target="_blank" rel="noopener">{{ ui.icon("globe") }}</a>{% endif %}
+          </div>
+          <div class="card card-pad stack" style="--gap:8px">
+            <h3>Quality checks</h3>
+            <div class="row small" style="--gap:6px">
+              <span class="badge {{ 'badge-green' if g.passed else 'badge-amber' }}">{{ "Passed" if g.passed else "Issues" }}</span>
+              {% if e.judge_score is not none %}<span class="badge {{ 'badge-green' if e.judge_score >= 4 else 'badge-amber' }}">Judge {{ e.judge_score }}/5</span>{% endif %}
+              {% if g.attempts %}<span class="badge">{{ g.attempts }} draft{{ "s" if g.attempts != 1 }}</span>{% endif %}
+            </div>
+            {% set claims = e.claims_json|fromjson %}
+            {% if claims %}<div class="faint small">Every claim traced to research:</div>
+            {% for cl in claims %}<div class="fact small"><span class="id">{{ cl.fact_id }}</span><span>“{{ cl.text }}”</span></div>{% endfor %}{% endif %}
+            {% if g.judge and g.judge.issues %}<div class="small" style="color:var(--amber)">{{ g.judge.issues|join("; ") }}</div>{% endif %}
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+<style>@media (max-width: 1100px) { #review-grid { grid-template-columns: 1fr !important; } }</style>
+{% endblock %}

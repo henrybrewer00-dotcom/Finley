@@ -1,0 +1,30 @@
+{% extends "app/base.html" %}
+{% block title %}Campaigns{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Campaigns</h1><p>Each campaign pairs one offer with one kind of customer, so every email stays specific.</p></div>
+  <a class="btn btn-primary" href="/app/campaigns/new">{{ ui.icon("plus") }}New campaign</a>
+</div>
+
+{% if campaigns %}
+<div class="grid grid-3">
+  {% for c in campaigns %}
+  <a class="card card-pad" href="/app/campaigns/{{ c.id }}" style="text-decoration:none;display:flex;flex-direction:column;gap:12px">
+    <div class="row between">
+      <h2 class="truncate grow">{{ c.name }}</h2>
+      {% if c.n_review %}<span class="badge badge-amber">{{ c.n_review }} to review</span>{% elif c.n_sent %}<span class="badge badge-green"><span class="dot"></span>Sending</span>{% elif c.n_leads %}<span class="badge badge-blue">Ready</span>{% else %}<span class="badge">Needs leads</span>{% endif %}
+    </div>
+    <p class="muted small" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:38px">{{ c.icp }}</p>
+    <div class="row" style="--gap:18px;border-top:1px solid var(--border);padding-top:12px">
+      <div><div class="faint small">Leads</div><b>{{ c.n_leads }}</b></div>
+      <div><div class="faint small">Written</div><b>{{ c.n_drafted }}</b></div>
+      <div><div class="faint small">Sent</div><b>{{ c.n_sent }}</b></div>
+      <div class="grow right faint small">{{ (c.created_at or "")[:10] }}</div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card">{{ ui.empty("send", "Create your first campaign", "Tell Finley what you sell and who it's for. Then find leads, and Finley writes a researched email for each one.", "New campaign", "/app/campaigns/new") }}</div>
+{% endif %}
+{% endblock %}

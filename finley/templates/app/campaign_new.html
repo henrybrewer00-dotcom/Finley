@@ -1,0 +1,39 @@
+{% extends "app/base.html" %}
+{% block title %}New campaign{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="/app/campaigns">Campaigns</a>{{ ui.icon("chevron-right") }}<span>New</span></div>
+<div class="page-head"><div><h1>New campaign</h1><p>The more specific you are here, the better every email gets.</p></div></div>
+
+<form method="post" action="/app/campaigns" class="grid grid-main">
+  {% if lead_list %}<input type="hidden" name="lead_list" value="{{ lead_list }}">{% endif %}
+  <div class="card">
+    <div class="card-body stack" style="--gap:18px">
+      <label class="field"><span class="label">Campaign name</span>
+        <input class="input" name="name" required placeholder="Austin plumbers, after-hours answering"></label>
+      <label class="field"><span class="label">What you sell</span>
+        <textarea class="textarea" name="offer" required placeholder="What it is, who it helps, and the result it gets them. Example: We answer after-hours calls for plumbing shops so emergency jobs get booked instead of going to voicemail.">{{ profile.offer or "" }}</textarea></label>
+      <label class="field"><span class="label">Who it's for</span>
+        <textarea class="textarea" name="icp" required placeholder="Industry, company size, roles, locations, and who to exclude. Example: Owner-operated plumbing companies in Texas with 3 to 30 staff. Not franchises.">{{ profile.icp or "" }}</textarea></label>
+      <label class="field"><span class="label">Proof you can mention <span class="faint">(optional)</span></span>
+        <textarea class="textarea" name="proof" placeholder="Real results with real numbers. Finley only cites what you put here, never made-up stats.">{{ profile.proof or "" }}</textarea></label>
+      <label class="field"><span class="label">Emails you've written before <span class="faint">(optional)</span></span>
+        <textarea class="textarea" name="voice_samples" rows="5" placeholder="Paste 3 to 10 emails you wrote yourself so Finley matches your voice.">{{ profile.voice_samples or "" }}</textarea></label>
+    </div>
+    <div class="card-foot row between">
+      <a class="btn btn-ghost" href="/app/campaigns">Cancel</a>
+      <button class="btn btn-primary">Create campaign {{ ui.icon("arrow-right") }}</button>
+    </div>
+  </div>
+  <div class="stack" style="--gap:16px">
+    <div class="card card-pad stack">
+      <h3>What happens next</h3>
+      <div class="stack small muted" style="--gap:10px">
+        <div class="row top" style="--gap:10px;flex-wrap:nowrap"><span class="badge badge-green">1</span><span>Add leads: find them by description, or import a CSV.</span></div>
+        <div class="row top" style="--gap:10px;flex-wrap:nowrap"><span class="badge badge-green">2</span><span>Finley reads each company's website and scores the fit.</span></div>
+        <div class="row top" style="--gap:10px;flex-wrap:nowrap"><span class="badge badge-green">3</span><span>For good fits, it writes an email in one of ten proven formats and checks every claim.</span></div>
+        <div class="row top" style="--gap:10px;flex-wrap:nowrap"><span class="badge badge-green">4</span><span>You review and approve. Nothing sends without you.</span></div>
+      </div>
+    </div>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,185 @@
+{% extends "app/base.html" %}
+{% block title %}{{ c.name }}{% endblock %}
+{% block content %}
+<div class="crumbs"><a href="/app/campaigns">Campaigns</a>{{ ui.icon("chevron-right") }}<span class="truncate">{{ c.name }}</span></div>
+<div class="page-head">
+  <div class="grow"><h1>{{ c.name }}</h1><p class="truncate" style="max-width:720px">{{ c.offer }}</p></div>
+  <div class="row">
+    <a class="btn" href="/app/find?campaign={{ c.id }}">{{ ui.icon("search") }}Find more leads</a>
+    {% if m.drafted %}<a class="btn btn-primary" href="/app/review">{{ ui.icon("inbox") }}Review emails</a>{% endif %}
+  </div>
+</div>
+
+<nav class="tabs" style="margin-bottom:22px">
+  {% for key, label in tabs %}
+  <a class="tab {{ 'active' if tab == key }}" href="?tab={{ key }}">{{ label }}
+    {% if key == "leads" %}<span class="count">{{ m.leads }}</span>{% elif key == "emails" %}<span class="count">{{ m.drafted }}</span>{% endif %}</a>
+  {% endfor %}
+</nav>
+
+{% if tab == "overview" %}
+<div class="kpis" style="margin-bottom:20px">
+  {{ ui.kpi("Leads", m.leads, (m.filtered ~ " filtered out") if m.filtered else "") }}
+  {{ ui.kpi("Emails written", m.drafted) }}
+  {{ ui.kpi("Sent", m.sent) }}
+  {{ ui.kpi("Reply rate", m.reply_rate|pct, (m.replies ~ " replies") if m.sent else "") }}
+  {{ ui.kpi("Meetings", m.meetings) }}
+  {{ ui.kpi("AI spend", m.cost_usd|money, ("$" ~ m.cost_per_meeting ~ "/meeting") if m.cost_per_meeting else "") }}
+</div>
+
+<div class="grid grid-2">
+  <div class="card" id="run">
+    <div class="card-head"><div><h2>Write emails</h2><p>Research, score and write for leads that haven't been processed.</p></div></div>
+    <div class="card-body stack" style="--gap:14px">
+      {% if not new_leads %}
+      <div class="alert alert-info">{{ ui.icon("info") }}<div>No unprocessed leads. <a href="/app/find?campaign={{ c.id }}">Find leads</a> or <a href="?tab=leads">import a CSV</a> first.</div></div>
+      {% endif %}
+      <div class="grid grid-2" style="gap:12px">
+        <label class="field"><span class="label">How many leads</span><input class="input" type="number" id="run-limit" value="{{ [new_leads, 25]|min if new_leads else 25 }}" min="1" max="500"></label>
+        <label class="field"><span class="label">Only write if score is at least</span><input class="input" type="number" id="run-min" value="50" min="0" max="100"></label>
+      </div>
+      <label class="field"><span class="label">Skip these domains <span class="faint">(customers, competitors)</span></span><input class="input" id="run-exclude" placeholder="acme.com, rival.io"></label>
+      {% if not has_key %}
+      <div class="alert alert-warn">{{ ui.icon("key") }}<div>Add your Anthropic API key in <a href="/app/settings#ai">Settings</a> to write real emails. Until then you can try a demo run with sample AI output.</div></div>
+      {% endif %}
+      <label class="check"><input type="checkbox" id="run-demo" {{ "checked" if not has_key }}> Demo run (sample AI output, no cost)</label>
+      <div id="run-progress" class="stack hidden" style="--gap:8px">
+        <div class="row between small"><span id="run-status" class="row" style="--gap:8px"><span class="spinner"></span>Starting…</span><span id="run-count" class="faint"></span></div>
+        <div class="progress"><span id="run-bar"></span></div>
+        <div class="runlog" id="run-log"></div>
+      </div>
+    </div>
+    <div class="card-foot row between">
+      <span class="faint small">{{ new_leads }} lead{{ "s" if new_leads != 1 }} waiting</span>
+      <button class="btn btn-primary" id="run-btn" data-campaign="{{ c.id }}" {{ "disabled" if not new_leads }}>{{ ui.icon("sparkles") }}Write emails</button>
+    </div>
+  </div>
+
+  <div class="stack" style="--gap:20px">
+    <div class="card">
+      <div class="card-head"><div><h2>Add leads</h2><p>Describe who you want, or bring your own list.</p></div></div>
+      <div class="card-body stack" style="--gap:12px">
+        <a class="btn btn-primary btn-block" href="/app/find?campaign={{ c.id }}">{{ ui.icon("search") }}Find leads by description</a>
+        <form method="post" action="/app/campaigns/{{ c.id }}/import" enctype="multipart/form-data" class="row">
+          <input class="file grow" type="file" name="file" accept=".csv" required>
+          <button class="btn">{{ ui.icon("upload") }}Import CSV</button>
+        </form>
+        <p class="hint">Any CSV with an email column works. Name, company and website columns make emails better.</p>
+      </div>
+    </div>
+    <details class="card">
+      <summary class="card-head" style="cursor:pointer;border-bottom:0"><div><h2>Campaign brief</h2><p>Offer, ideal customer, proof and voice</p></div>{{ ui.icon("edit") }}</summary>
+      <form method="post" action="/app/campaigns/{{ c.id }}/edit" class="card-body stack" style="--gap:14px;border-top:1px solid var(--border)">
+        <label class="field"><span class="label">Name</span><input class="input" name="name" value="{{ c.name }}" required></label>
+        <label class="field"><span class="label">What you sell</span><textarea class="textarea" name="offer" required>{{ c.offer }}</textarea></label>
+        <label class="field"><span class="label">Who it's for</span><textarea class="textarea" name="icp" required>{{ c.icp }}</textarea></label>
+        <label class="field"><span class="label">Proof</span><textarea class="textarea" name="proof">{{ c.proof }}</textarea></label>
+        <label class="field"><span class="label">Your past emails</span><textarea class="textarea" name="voice_samples">{{ c.voice_samples }}</textarea></label>
+        <div><button class="btn btn-primary">Save brief</button></div>
+      </form>
+    </details>
+  </div>
+</div>
+
+{% elif tab == "leads" %}
+<div class="card">
+  <div class="card-head">
+    <div><h2>Leads</h2><p>Sorted by score. Hover a score to see why.</p></div>
+    <div class="row">
+      <form method="post" action="/app/campaigns/{{ c.id }}/import" enctype="multipart/form-data" class="row" style="--gap:6px">
+        <input class="file" type="file" name="file" accept=".csv" required style="max-width:200px">
+        <button class="btn btn-sm">{{ ui.icon("upload") }}Import</button>
+      </form>
+      <a class="btn btn-sm" href="/app/campaigns/{{ c.id }}/export.csv">{{ ui.icon("download") }}Export</a>
+    </div>
+  </div>
+  {% if leads %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>Score</th><th>Person</th><th>Company</th><th>Email</th><th>Status</th><th>Why</th></tr></thead>
+    <tbody>
+    {% for l in leads %}{% set s = l.score_json|fromjson %}
+    <tr>
+      <td title="{% if s.reasons %}Fit {{ s.fit }}/5 · Need {{ s.need }}/5 · Timing {{ s.timing }}/5 · Reach {{ s.reachability }}/5{% endif %}">{{ ui.score(l.score) }}</td>
+      <td><div class="cell-main">{{ (l.first_name ~ " " ~ l.last_name)|trim or "–" }}</div><div class="cell-sub">{{ l.title }}</div></td>
+      <td><div>{{ l.company or "–" }}</div>{% if l.website %}<a class="cell-sub" href="{{ l.website }}" target="_blank" rel="noopener">{{ l.website|replace("https://", "")|replace("http://", "")|replace("www.", "") }}</a>{% endif %}</td>
+      <td class="nowrap">{{ l.email }}</td>
+      <td>{{ ui.status(l.status) }}</td>
+      <td class="cell-sub" style="max-width:320px">{% if s.reason %}{{ s.reason }}{% elif s.disqualify_reason %}{{ s.disqualify_reason }}{% elif s.reasons %}{{ s.reasons.fit }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  {{ ui.empty("users", "No leads yet", "Find leads by describing your ideal customer, or import a CSV from any tool.", "Find leads", "/app/find?campaign=" ~ c.id) }}
+  {% endif %}
+</div>
+
+{% elif tab == "emails" %}
+<div class="card">
+  <div class="card-head">
+    <div><h2>Emails</h2><p>Every draft passed automatic checks before it got here. Nothing sends until you approve it.</p></div>
+    <div class="row">
+      <form class="inline" method="post" action="/app/campaigns/{{ c.id }}/approve-all"><input type="hidden" name="min_judge" value="4"><button class="btn btn-sm">{{ ui.icon("check") }}Approve all that passed</button></form>
+      <form class="inline" method="post" action="/app/campaigns/{{ c.id }}/send"><button class="btn btn-sm btn-primary" {% if not can_send %}disabled title="Connect your inbox in Settings first"{% endif %}>{{ ui.icon("send") }}Send approved</button></form>
+    </div>
+  </div>
+  {% if not can_send %}<div style="padding:12px 20px 0"><div class="alert alert-info">{{ ui.icon("info") }}<div>Connect your inbox in <a href="/app/settings#sending">Settings</a> to send. Emails go out from your own address.</div></div></div>{% endif %}
+  {% if emails %}
+  <div class="table-wrap"><table class="table">
+    <thead><tr><th>To</th><th>Subject</th><th>Format</th><th>Quality</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for e in emails %}
+    <tr>
+      <td><div class="cell-main">{{ e.first_name }} {{ e.last_name }}</div><div class="cell-sub">{{ e.company }}</div></td>
+      <td style="max-width:340px"><div class="truncate">{{ e.subject }}</div><div class="cell-sub truncate">{{ e.body[:90] }}</div></td>
+      <td><span class="badge">{{ formats[e.format_key].name if e.format_key in formats else e.format_key }}</span></td>
+      <td>{% if e.judge_score is not none %}<span class="badge {{ 'badge-green' if e.judge_score >= 4 else 'badge-amber' }}">{{ e.judge_score }}/5</span>{% else %}–{% endif %}</td>
+      <td>{{ ui.status(e.status) }}</td>
+      <td class="right nowrap">
+        {% if e.status in ("draft", "needs_review", "approved") %}<a class="btn btn-sm" href="/app/review?id={{ e.id }}">Open</a>
+        {% elif e.status == "sent" %}
+        <form class="inline" method="post" action="/app/emails/{{ e.id }}/outcome?next=/app/campaigns/{{ c.id }}%3Ftab%3Demails">
+          <select class="select" name="outcome" onchange="this.form.submit()" style="height:28px;width:auto;font-size:12.5px;padding:0 8px">
+            <option value="">Log outcome…</option>{% for o in outcomes %}<option value="{{ o }}">{{ o|replace("_", " ")|capitalize }}</option>{% endfor %}
+          </select>
+        </form>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}
+  {{ ui.empty("mail", "No emails yet", "Add leads, then press Write emails on the Overview tab.", "", "") }}
+  {% endif %}
+</div>
+
+{% elif tab == "results" %}
+<div class="kpis" style="margin-bottom:20px">
+  {{ ui.kpi("Reply rate", m.reply_rate|pct) }}
+  {{ ui.kpi("Positive rate", m.positive_rate|pct) }}
+  {{ ui.kpi("Bounce rate", m.bounce_rate|pct) }}
+  {{ ui.kpi("Cost per lead", ("$%.3f"|format(m.cost_per_lead)) if m.cost_per_lead else "–") }}
+  {{ ui.kpi("Cost per meeting", ("$" ~ m.cost_per_meeting) if m.cost_per_meeting else "–") }}
+</div>
+<div class="grid grid-2">
+  {% for title, sub, rows, label in [("By email format", "Which of the ten formats gets replies", m.by_format, "Format"), ("By lead score", "Do high scores really reply more?", m.by_band, "Band")] %}
+  <div class="card">
+    <div class="card-head"><div><h2>{{ title }}</h2><p>{{ sub }}</p></div></div>
+    {% if rows %}
+    <div class="table-wrap"><table class="table">
+      <thead><tr><th>{{ label }}</th><th class="right">Written</th><th class="right">Sent</th><th class="right">Replies</th><th class="right">Reply rate</th></tr></thead>
+      <tbody>{% for r in rows %}<tr><td>{% if label == "Format" %}{{ formats[r.key].name if r.key in formats else r.key }}{% else %}<span class="score score-{{ r.key }}">{{ r.key }}</span>{% endif %}</td><td class="right">{{ r.drafted }}</td><td class="right">{{ r.sent }}</td><td class="right">{{ r.replies }}</td><td class="right">{{ r.reply_rate|pct }}</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}<div class="card-body faint">Nothing to compare yet.</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+<div class="card" style="margin-top:20px">
+  <div class="card-head"><div><h2>AI spend by step</h2><p>Billed to your own Anthropic key, at list prices.</p></div><b>{{ m.cost_usd|money }}</b></div>
+  <div class="card-body row" style="--gap:24px">
+    {% for k, v in m.cost_by_task.items() %}<div><div class="faint small">{{ (k or "other")|replace("_", " ")|capitalize }}</div><b>${{ "%.4f"|format(v) }}</b></div>{% else %}<span class="faint">No AI calls yet.</span>{% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script>Finley.bindRun();</script>{% endblock %}
