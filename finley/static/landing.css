@@ -195,3 +195,14 @@
 .plan, .plan.featured { box-shadow: none; }
 .plan.featured { background: var(--surface); border: 1px solid var(--text); }
 .lp .btn, .lp .btn-primary { box-shadow: none; background-image: none; }
+
+/* ===== PORTAL PASS (landing) ===== */
+.lp .hero h1 em { font-style: normal; background: var(--ink); -webkit-background-clip: border-box; background-clip: border-box; color: #fff; -webkit-text-fill-color: #fff; -webkit-text-stroke: 0; display: inline-block; padding: .02em .12em 0; line-height: .9; }
+.lp .final h2 em { font-style: normal; background: #fff; -webkit-background-clip: border-box; background-clip: border-box; color: var(--ink); -webkit-text-fill-color: var(--ink); -webkit-text-stroke: 0; display: inline-block; padding: .02em .12em 0; line-height: .9; }
+.lp .hero { padding-top: 96px; }
+.lp .show-tab.active { border-bottom: 3px solid var(--ink); }
+.lp .show-tabs { border-bottom: 1.5px solid var(--ink); }
+.lp .steps .step::before { border-radius: 0; background: var(--ink); }
+.lp .final p { color: #d2d2ff; }
+.lp .final .btn-primary { color: var(--ink); }
+.lp .final .btn-primary:hover { color: #fff; border-color: #fff; }
