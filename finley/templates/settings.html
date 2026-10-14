@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Settings · Finley{% endblock %}
+{% block body %}
+<h1>Settings</h1>
+<p class="muted">Signed in as {{ user.email }}.</p>
+{% if welcome %}<div class="flash">Welcome to Finley. Add your Anthropic key and sending inbox below, then <a href="/">create your first campaign</a>.</div>{% endif %}
+{% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+<h2 id="ai">AI</h2>
+<form class="panel" method="post" action="/settings">
+  <input type="hidden" name="section" value="ai">
+  <label>Anthropic API key <span class="hint">Get one at console.anthropic.com. Stored encrypted, used only for your runs.</span></label>
+  {% if s.has_anthropic_key %}<p class="muted">Saved: {{ s.anthropic_key_hint }}. Paste a new key to replace it.</p>{% endif %}
+  {% if can_store_secrets %}
+  <input type="password" name="anthropic_key" autocomplete="off" placeholder="sk-ant-...">
+  <p><button>Save key</button>
+  {% if s.has_anthropic_key %}<label style="display:inline;font-weight:400"><input type="checkbox" name="clear_anthropic_key" value="1"> Remove saved key</label>{% endif %}</p>
+  {% else %}
+  <p class="warn">This server can't store keys yet. Paste your key on each run instead.</p>
+  {% endif %}
+</form>
+
+<h2 id="profile">Sender profile</h2>
+<form class="panel" method="post" action="/settings">
+  <input type="hidden" name="section" value="profile">
+  <div class="row">
+    <div><label>Your name</label><input type="text" name="from_name" value="{{ s.from_name }}"></div>
+    <div><label>Your title</label><input type="text" name="sender_title" value="{{ s.sender_title }}" placeholder="Founder"></div>
+  </div>
+  <div class="row">
+    <div><label>Company</label><input type="text" name="company_name" value="{{ s.company_name }}"></div>
+    <div><label>Website</label><input type="text" name="company_website" value="{{ s.company_website }}" placeholder="https://"></div>
+  </div>
+  <label>What you sell <span class="hint">(who it helps and the result it gets them; new campaigns start from this)</span></label>
+  <textarea name="company_description">{{ s.company_description }}</textarea>
+  <label>Email signature</label><textarea name="signature" placeholder="Alex Rivera&#10;Founder, Acme">{{ s.signature }}</textarea>
+  <label>Mailing address <span class="hint">(cold email law in the US and EU requires one in every email)</span></label>
+  <input type="text" name="physical_address" value="{{ s.physical_address }}">
+  <p><button>Save profile</button></p>
+</form>
+
+<h2 id="inbox">Sending inbox</h2>
+<form class="panel" method="post" action="/settings">
+  <input type="hidden" name="section" value="inbox">
+  <p class="muted">Emails go out from your own mailbox over SMTP. For Gmail use smtp.gmail.com, port 587, and an app password.</p>
+  <div class="row">
+    <div><label>From email</label><input type="email" name="from_email" value="{{ s.from_email }}"></div>
+    <div><label>Daily cap</label><input type="number" name="daily_cap" value="{{ s.daily_cap or 30 }}" min="1" max="500"></div>
+  </div>
+  <div class="row">
+    <div><label>SMTP server</label><input type="text" name="smtp_host" value="{{ s.smtp_host }}" placeholder="smtp.gmail.com"></div>
+    <div><label>Port</label><input type="number" name="smtp_port" value="{{ s.smtp_port or 587 }}"></div>
+  </div>
+  <div class="row">
+    <div><label>SMTP username</label><input type="text" name="smtp_user" value="{{ s.smtp_user }}" autocomplete="off"></div>
+    <div><label>SMTP password {% if s.has_smtp_password %}<span class="hint">(saved; leave blank to keep)</span>{% endif %}</label>
+      {% if can_store_secrets %}<input type="password" name="smtp_password" autocomplete="new-password">{% else %}<p class="warn">This server can't store passwords yet.</p>{% endif %}</div>
+  </div>
+  <p><button>Save inbox</button></p>
+</form>
+
+<h2 id="defaults">Targeting defaults</h2>
+<form class="panel" method="post" action="/settings">
+  <input type="hidden" name="section" value="defaults">
+  <label>Never contact these domains <span class="hint">(customers, competitors, partners; applies to every run)</span></label>
+  <textarea name="exclude_domains" placeholder="acme.com, rival.io">{{ s.exclude_domains }}</textarea>
+  <label>Minimum score to write an email (0-100)</label>
+  <input type="number" name="min_score" value="{{ s.min_score|int if s.min_score != '' else 50 }}" min="0" max="100">
+  <p><button>Save defaults</button></p>
+</form>
+
+<h2 id="account">Account</h2>
+<form class="panel" method="post" action="/settings/password">
+  <div class="row">
+    <div><label>Current password</label><input type="password" name="current" required autocomplete="current-password"></div>
+    <div><label>New password</label><input type="password" name="new" required minlength="8" autocomplete="new-password"></div>
+  </div>
+  <p><button class="ghost">Change password</button></p>
+</form>
+<form class="panel" method="post" action="/settings/delete-account">
+  <label>Delete account <span class="hint">Removes your campaigns, leads, emails and settings for good. Type your email to confirm.</span></label>
+  <input type="email" name="confirm_email" required>
+  <p><button class="ghost bad">Delete my account</button></p>
+</form>
+{% endblock %}

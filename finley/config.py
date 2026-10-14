@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .db import database_url_from_env
+
 
 def _load_dotenv(path: Path = Path(".env")) -> None:
     if not path.exists():
@@ -49,8 +51,10 @@ class Settings:
         _load_dotenv()
         env = os.environ
         return cls(
-            # Serverless hosts (Vercel) only allow writes under /tmp, and it is wiped between instances.
-            db_path=env.get("FINLEY_DB", "/tmp/finley.db" if env.get("VERCEL") else cls.db_path),
+            # Postgres when a database URL is set. Otherwise SQLite; serverless hosts (Vercel) only
+            # allow writes under /tmp, which is wiped between instances.
+            db_path=database_url_from_env()
+            or env.get("FINLEY_DB", "/tmp/finley.db" if env.get("VERCEL") else cls.db_path),
             scorer_model=env.get("FINLEY_SCORER_MODEL", cls.scorer_model),
             research_model=env.get("FINLEY_RESEARCH_MODEL", cls.research_model),
             judge_model=env.get("FINLEY_JUDGE_MODEL", cls.judge_model),

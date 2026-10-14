@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Sign up · Finley{% endblock %}
+{% block body %}
+<div class="auth">
+<h1>Create your account</h1>
+{% if closed %}
+<p class="muted">Sign-ups are closed on this server. <a href="/login">Log in</a> instead.</p>
+{% else %}
+<p class="muted">Bring your own Anthropic key and inbox. You pay the AI provider directly, usually cents per lead.</p>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<form class="panel" method="post" action="/signup">
+  <input type="hidden" name="next" value="{{ next }}">
+  <label>Your name</label><input type="text" name="name" value="{{ form.name or '' }}" autocomplete="name">
+  <label>Email</label><input type="email" name="email" value="{{ form.email or '' }}" required autocomplete="email">
+  <label>Password <span class="hint">(at least 8 characters)</span></label><input type="password" name="password" required minlength="8" autocomplete="new-password">
+  <p><button>Create account</button></p>
+</form>
+<p class="muted">Already have an account? <a href="/login">Log in</a>.</p>
+{% endif %}
+</div>
+{% endblock %}

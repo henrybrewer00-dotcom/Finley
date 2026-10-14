@@ -33,10 +33,21 @@
   .flash { background:var(--panel); border-left:4px solid var(--accent); padding:10px 14px; border-radius:6px; margin-bottom:16px; }
   details summary { cursor:pointer; color:var(--muted); }
   form.inline { display:inline; }
+  nav { margin-left:auto; display:flex; gap:14px; align-items:center; } nav a { font-weight:500 !important; font-size:15px !important; }
+  input[type=email], input[type=password], input[type=url] { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; }
+  .auth { max-width:420px; margin:40px auto; }
+  .error { background:var(--panel); border-left:4px solid var(--bad); padding:10px 14px; border-radius:6px; margin-bottom:16px; }
+  .hint { color:var(--muted); font-size:13px; font-weight:400; }
 </style>
 </head>
 <body>
-<header><a href="/">Finley</a><span>open-source lead finder, scorer and campaign manager</span></header>
-<main>{% block body %}{% endblock %}</main>
+<header><a href="/">Finley</a><span>open-source lead finder, scorer and campaign manager</span>
+  <nav>{% if user %}<a href="/">Campaigns</a><a href="/settings">Settings</a>
+    <form class="inline" method="post" action="/logout"><button class="ghost">Log out</button></form>
+  {% else %}<a href="/login">Log in</a><a href="/signup">Sign up</a>{% endif %}</nav>
+</header>
+<main>
+{% if ephemeral %}<div class="flash warn">This server has no database connected, so accounts and data reset when it restarts.</div>{% endif %}
+{% block body %}{% endblock %}</main>
 </body>
 </html>

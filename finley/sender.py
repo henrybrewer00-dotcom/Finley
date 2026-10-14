@@ -7,7 +7,6 @@ suppression check right before every send.
 from __future__ import annotations
 
 import smtplib
-import sqlite3
 from datetime import datetime, timezone
 from email.message import EmailMessage
 from email.utils import formataddr, make_msgid
@@ -23,11 +22,11 @@ class SendError(RuntimeError):
 def sent_today(db: DB, from_email: str) -> int:
     day = datetime.now(timezone.utc).date().isoformat()
     row = db.one("SELECT COUNT(*) AS n FROM events WHERE kind = 'email_sent' AND ts >= ? "
-                 "AND json_extract(data_json, '$.from') = ?", day, from_email)
+                 f"AND {db.json_get('data_json', 'from')} = ?", day, from_email)
     return int(row["n"]) if row else 0
 
 
-def build_message(settings: Settings, email: sqlite3.Row, lead: sqlite3.Row) -> EmailMessage:
+def build_message(settings: Settings, email, lead) -> EmailMessage:
     msg = EmailMessage()
     msg["From"] = formataddr((settings.from_name, settings.from_email))
     msg["To"] = lead["email"]
@@ -49,11 +48,12 @@ def send_email(db: DB, settings: Settings, email_id: int, smtp_factory=smtplib.S
     if email["status"] != "approved":
         raise SendError("Only approved emails can be sent.")
     lead = db.one("SELECT * FROM leads WHERE id = ?", email["lead_id"])
-    if db.is_suppressed(lead["email"]):
+    owner = db.campaign_user(email["campaign_id"])
+    if db.is_suppressed(lead["email"], owner):
         db.update("emails", email_id, {"status": "rejected"})
         raise SendError(f"{lead['email']} is on the do-not-contact list.")
     if not (settings.smtp_host and settings.from_email):
-        raise SendError("Set SMTP_HOST, SMTP_USER, SMTP_PASSWORD and FROM_EMAIL to send.")
+        raise SendError("Add a sending inbox in Settings (or SMTP_HOST and FROM_EMAIL in .env) to send.")
     if sent_today(db, settings.from_email) >= settings.daily_cap_per_inbox:
         raise SendError(f"Daily cap of {settings.daily_cap_per_inbox} reached for {settings.from_email}.")
 
@@ -89,6 +89,6 @@ def record_outcome(db: DB, email_id: int, outcome: str) -> None:
     db.log_event(outcome, campaign_id=email["campaign_id"], lead_id=lead["id"], email_id=email_id,
                  data={"format": email["format_key"]})
     if outcome in ("bounce", "unsubscribe"):
-        db.suppress(lead["email"], outcome)
+        db.suppress(lead["email"], outcome, db.campaign_user(email["campaign_id"]))
     if outcome.startswith("reply") or outcome == "meeting_booked":
         db.update("leads", lead["id"], {"status": "replied"})

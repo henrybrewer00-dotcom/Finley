@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Log in · Finley{% endblock %}
+{% block body %}
+<div class="auth">
+<h1>Log in</h1>
+<p class="muted">Welcome back.</p>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+<form class="panel" method="post" action="/login">
+  <input type="hidden" name="next" value="{{ next }}">
+  <label>Email</label><input type="email" name="email" value="{{ email }}" required autocomplete="email" autofocus>
+  <label>Password</label><input type="password" name="password" required autocomplete="current-password">
+  <p><button>Log in</button></p>
+</form>
+{% if signups_open %}<p class="muted">New to Finley? <a href="/signup">Create an account</a>. It's free.</p>{% endif %}
+</div>
+{% endblock %}

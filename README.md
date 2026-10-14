@@ -26,9 +26,14 @@ Every email follows one named format from [`finley/formats.py`](finley/formats.p
 git clone <this repo> && cd finley
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env        # add your ANTHROPIC_API_KEY and, to send, your SMTP details
-finley serve                # http://127.0.0.1:8000
+cp .env.example .env        # optional: everything can also be set per account in Settings
+finley serve                # http://127.0.0.1:8000, then create your account
 ```
+
+Each person signs up with their own account. Their Anthropic key, sending inbox, sender profile and
+do-not-contact domains live under Settings; keys and SMTP passwords are stored encrypted. The first
+account also takes over any campaigns made earlier with the CLI. Set `FINLEY_SIGNUPS=closed` to stop
+anyone else signing up.
 
 Or from the command line:
 
@@ -41,7 +46,12 @@ finley metrics 1
 
 ## Deploy to Vercel (free)
 
-The repo includes `main.py` and `requirements.txt`, so importing it into Vercel works with no settings. On Vercel, each person pastes their own Anthropic key on the Run form; it's used for that run only and never stored. Note that serverless storage is temporary: the SQLite file lives in `/tmp` and resets when the instance restarts, so treat a Vercel deploy as a demo until a hosted database is added.
+The repo includes `main.py` and `requirements.txt`, so importing it into Vercel works with no settings. To keep accounts and data between restarts, add two things in the Vercel project:
+
+1. **A database.** Under Storage, add Neon Postgres (the free tier is plenty). It sets `DATABASE_URL`, and Finley creates its tables on first start. Any Postgres URL works, including Supabase.
+2. **`FINLEY_SECRET_KEY`** under Environment Variables, so users can save their Anthropic key and SMTP password (encrypted with this key). Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"` and never change it.
+
+Without a database, Vercel's filesystem is temporary: SQLite lives in `/tmp` and resets when the instance restarts, and the site shows a banner saying so. Without the secret key, people paste their Anthropic key on each run instead. Never put your own Anthropic key in the environment of a public deploy.
 
 ## Cost
 
@@ -60,7 +70,7 @@ Bench reports the pass rate, the **unbacked-claim rate** (target 0), the average
 
 ## Configuration
 
-See [`.env.example`](.env.example). Data lives in one SQLite file (`finley.db`). The dashboard binds to `127.0.0.1`. Set `FINLEY_PASSWORD` before exposing it anywhere.
+See [`.env.example`](.env.example). Locally, data lives in one SQLite file (`finley.db`); set `DATABASE_URL` to use Postgres instead. The dashboard binds to `127.0.0.1` and requires an account login.
 
 ## Sending responsibly
 

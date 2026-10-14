@@ -24,10 +24,14 @@
 <form class="panel" method="post" action="/campaigns/{{ c.id }}/run">
   <div class="row">
     <div><label>Leads to process</label><input type="number" name="limit" value="25" min="1" max="1000"></div>
-    <div><label>Minimum score to write (0-100)</label><input type="number" name="min_score" value="50" min="0" max="100"></div>
-    <div><label>Exclude domains <span class="muted">(customers, competitors)</span></label><input type="text" name="exclude_domains" placeholder="acme.com, rival.io"></div>
+    <div><label>Minimum score to write (0-100)</label><input type="number" name="min_score" value="{{ s.min_score|int if s.min_score != '' else 50 }}" min="0" max="100"></div>
+    <div><label>Also exclude <span class="muted">(this run only{% if s.exclude_domains %}; <a href="/settings#defaults">saved exclusions</a> always apply{% endif %})</span></label><input type="text" name="exclude_domains" placeholder="acme.com, rival.io"></div>
   </div>
-  <label>Your Anthropic API key <span class="muted">(used for this run only, never stored; leave blank if set on the server)</span></label><input type="password" name="api_key" autocomplete="off" placeholder="sk-ant-...">
+  {% if s.has_anthropic_key %}
+  <p class="muted">Using your saved Anthropic key ({{ s.anthropic_key_hint }}). <a href="/settings#ai">Change</a></p>
+  {% elif not server_key %}
+  <label>Your Anthropic API key <span class="muted">(used for this run only; <a href="/settings#ai">save it in Settings</a> to skip this)</span></label><input type="password" name="api_key" autocomplete="off" placeholder="sk-ant-...">
+  {% endif %}
   <p><label style="display:inline;font-weight:400"><input type="checkbox" name="dry_run" value="true"> Dry run (fake AI, no cost)</label></p>
   <button>Run</button>
 </form>
@@ -35,7 +39,8 @@
 <h2>3. Review and send</h2>
 <div class="row" style="margin-bottom:12px">
   <form class="inline" method="post" action="/campaigns/{{ c.id }}/approve-all"><input type="hidden" name="min_judge" value="4"><button class="ghost">Approve all drafts that passed review</button></form>
-  <form class="inline" method="post" action="/campaigns/{{ c.id }}/send"><button {% if not can_send %}disabled title="Set SMTP settings in .env"{% endif %}>Send approved</button></form>
+  <form class="inline" method="post" action="/campaigns/{{ c.id }}/send"><button {% if not can_send %}disabled title="Add a sending inbox in Settings"{% endif %}>Send approved</button></form>
+  {% if not can_send %}<span class="muted">To send, <a href="/settings#inbox">add your sending inbox</a>.</span>{% endif %}
 </div>
 {% for e in emails %}
 {% set g = e.gate_json|fromjson %}

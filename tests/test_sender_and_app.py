@@ -78,6 +78,8 @@ def test_outcomes_feed_metrics_and_suppression(db, settings, drafted):
 
 def test_dashboard_flow(db, settings, llm, csv_text):
     client = TestClient(create_app(settings, db, llm, fetch=lambda url: {}))
+    r = client.post("/signup", data={"email": "alex@example.com", "password": "correct horse"})
+    assert r.status_code == 200 and "Settings" in r.text
     r = client.post("/campaigns", data={"name": "Austin plumbers", "offer": "Call answering",
                                         "icp": "Plumbers in Austin"}, follow_redirects=False)
     assert r.status_code == 303
