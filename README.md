@@ -21,8 +21,9 @@ Finley finds leads for you from a plain-English description of your ideal custom
 Describe your ideal customer in plain English ("owner-run plumbing companies around Austin with 5 to 50 staff") and Finley builds the list:
 
 1. Haiku turns the description into 3 to 6 web searches aimed at company websites, plus the job titles to contact.
+1. If your customers are local businesses, Finley first pulls them from OpenStreetMap for free. Web search only fills the gap, so local lists often cost almost nothing.
 2. Haiku runs the searches with Anthropic web search (directories, social sites and job boards are blocked) and lists the companies it found. A company is kept only if its domain actually appeared in the search results, so nothing is invented.
-3. Finley reads each company's homepage and its contact, about and team pages (free) and collects the email addresses published there. Haiku picks the best one for the target titles and names the person if the page does.
+3. Finley reads each company's homepage and its contact, about and team pages (free) and collects the email addresses published there. In the same call, Haiku checks the site against your description, dropping franchises, vendors and other mismatches. It then picks the best email for the target titles and names the person if the page does. Parked and for-sale domains are skipped, and a site that redirects is saved under the domain it lands on.
 4. If a site lists no email and you set `HUNTER_API_KEY` (or `TREG_TOKEN`), Finley asks Hunter. Otherwise the company is skipped. Emails are never guessed.
 5. A free DNS check drops domains that can't receive mail. Duplicates, excluded domains and your do-not-contact list are skipped.
 

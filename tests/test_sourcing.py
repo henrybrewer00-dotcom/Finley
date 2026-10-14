@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from finley.app import create_app
 from finley.llm import FakeLLM
 from finley.pipeline import run_campaign
-from finley.sourcing import extract_emails, fake_fetch, find_leads, normalize_domain, rank_emails
+from finley.sourcing import extract_emails, fake_fetch, find_leads, normalize_domain, osm_businesses, rank_emails
 
 OFFLINE = {"fetch": fake_fetch, "mx_check": lambda d: True, "email_finder": lambda d: []}
 
@@ -103,3 +103,80 @@ def test_find_leads_api(db, settings, campaign_id):
     assert client.post("/api/campaigns/999/find-leads", json={"dry_run": True}).status_code == 404
     r = client.post(f"/campaigns/{campaign_id}/find-leads", data={"dry_run": "true"}, follow_redirects=False)
     assert r.status_code == 303 and "Found" in r.headers["location"]
+
+
+def _local_plan(u):
+    return {"queries": ["plumber Austin TX"], "target_titles": ["Owner"], "company_type": "plumber",
+            "exclusions": [], "local": {"is_local": True, "area": "Austin, Texas, USA",
+                                        "osm_tags": ["craft=plumber", "bad tag; drop"]}}
+
+
+def test_osm_businesses_parses_overpass():
+    calls = []
+
+    def http(url, data=None, timeout=0):
+        calls.append((url, data))
+        if "nominatim" in url:
+            return [{"osm_type": "relation", "osm_id": 113314}]
+        return {"elements": [
+            {"tags": {"name": "Rivera Plumbing", "craft": "plumber", "website": "https://www.riveraplumbing.com/",
+                      "email": "sam@riveraplumbing.com"}},
+            {"tags": {"name": "Dup", "craft": "plumber", "website": "riveraplumbing.com"}},
+            {"tags": {"name": "On Facebook", "craft": "plumber", "website": "https://facebook.com/x"}},
+            {"tags": {"craft": "plumber", "website": "noname.com"}},
+        ]}
+
+    out = osm_businesses("Austin, Texas, USA", ["craft=plumber", "x\"]; out;"], http=http)
+    assert out == [{"name": "Rivera Plumbing", "domain": "riveraplumbing.com", "emails": ["sam@riveraplumbing.com"],
+                    "found_via": "osm", "why_fit": "Listed on OpenStreetMap as craft=plumber in Austin, Texas, USA."}]
+    query = calls[1][1].decode()
+    assert "3600113314" in query and "out%3B" not in query.split("craft")[0]
+    assert osm_businesses("Austin", ["craft=plumber"], http=lambda *a, **k: 1 / 0) == []
+
+
+def test_local_customers_use_free_listings_before_web_search(db, settings, campaign_id):
+    llm = FakeLLM({"source_plan": _local_plan})
+    osm = [{"name": f"Plumber {i}", "domain": f"plumber{i}.com", "emails": [], "found_via": "osm",
+            "why_fit": "Listed on OpenStreetMap"} for i in range(6)]
+    r = find_leads(db, llm, settings, campaign_id, limit=3, osm_lookup=lambda area, tags: osm, **OFFLINE)
+    assert r["counts"]["from_openstreetmap"] == 6 and r["counts"]["leads_added"] == 3
+    assert not any(t == "source_search" for t, _ in llm.calls)  # enough free leads: no paid searches
+    assert db.one("SELECT source FROM leads")["source"] == "found:osm"
+
+
+def test_osm_email_is_used_when_site_lists_none(db, settings, campaign_id):
+    llm = FakeLLM({"source_plan": _local_plan})
+    osm = [{"name": "Quiet Co", "domain": "quietco.com", "emails": ["owner@quietco.com"], "found_via": "osm",
+            "why_fit": "x"}]
+    find_leads(db, llm, settings, campaign_id, limit=1, osm_lookup=lambda a, t: osm,
+               fetch=lambda url: {"/": "<p>We fix pipes all over Austin. Call us any time.</p>"},
+               mx_check=lambda d: True, email_finder=lambda d: [])
+    lead = db.one("SELECT * FROM leads")
+    assert lead["email"] == "owner@quietco.com"
+    assert json.loads(lead["extra_json"])["email_source"] == "openstreetmap"
+
+
+def test_fit_check_and_parked_domains_filter_leads(db, settings, campaign_id):
+    llm = FakeLLM({"source_contact": lambda u: {
+        "email": "sam@riveraplumbing.com", "first_name": "", "last_name": "", "title": "", "company": "",
+        "fits": "lonestardrains" not in u, "fit_reason": "A national franchise."}})
+
+    def fetch(url):
+        if "riveraplumbing" in url:
+            return {"/": "<h1>This domain is for sale!</h1> Buy this domain today. sam@riveraplumbing.com"}
+        return fake_fetch(url)
+
+    r = find_leads(db, llm, settings, campaign_id, limit=5, fetch=fetch, mx_check=lambda d: True,
+                   email_finder=lambda d: [])
+    assert r["counts"]["no_site"] == 1 and r["counts"]["not_a_fit"] == 1 and r["counts"]["leads_added"] == 0
+
+
+def test_redirected_site_is_saved_under_its_real_domain_once(db, llm, settings, campaign_id):
+    def fetch(url):
+        pages = fake_fetch("https://riveraplumbing.com")
+        return {**pages, "__final_url__": "https://riveraplumbing.com"}
+
+    r = find_leads(db, llm, settings, campaign_id, limit=5, fetch=fetch, mx_check=lambda d: True,
+                   email_finder=lambda d: [])
+    assert r["counts"]["leads_added"] == 1 and r["counts"]["duplicate"] == 1
+    assert {l["website"] for l in db.all("SELECT website FROM leads")} == {"https://riveraplumbing.com"}
