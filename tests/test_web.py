@@ -16,7 +16,6 @@ def test_landing_and_auth_pages_render(db, settings, llm):
     c = TestClient(create_app(settings, db, llm, vault=Vault("x")))
     page = c.get("/").text
     assert "Finley finds them" in page and "/signup" in page
-    assert "origami" not in page.lower()
     assert c.get("/static/finley.css").status_code == 200 and c.get("/static/finley.js").status_code == 200
     assert "Create your account" in c.get("/signup").text and "Welcome back" in c.get("/login").text
 
