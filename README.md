@@ -71,7 +71,7 @@ finley metrics 1
 
 The repo includes `main.py` and `requirements.txt`, so importing it into Vercel works with no settings. To keep accounts and data between restarts, add two things in the Vercel project:
 
-1. **A database.** Under Storage, add Neon Postgres (the free tier is plenty). It sets `DATABASE_URL`, and Finley creates its tables on first start. Any Postgres URL works, including Supabase.
+1. **A database.** Set `DATABASE_URL` to a Postgres connection string; Finley creates its tables on first start. The hosted Finley uses [InsForge](https://insforge.dev): in its dashboard open Project Settings, Connect, Connection String (or run `npx @insforge/cli db connection-string`). Neon, Supabase or any other Postgres works too. InsForge pauses free projects after 7 days without requests; restore them from its dashboard.
 2. **`FINLEY_SECRET_KEY`** under Environment Variables, so users can save their Anthropic key and SMTP password (encrypted with this key). Generate one with `python -c "import secrets; print(secrets.token_urlsafe(32))"` and never change it.
 
 Without a database, Vercel's filesystem is temporary: SQLite lives in `/tmp` and resets when the instance restarts, and the site shows a banner saying so. Without the secret key, people paste their Anthropic key on each run instead. Never put your own Anthropic key in the environment of a public deploy.
