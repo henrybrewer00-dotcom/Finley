@@ -192,7 +192,8 @@ def _fake_judge(user: str) -> dict:
 def _fake_source_plan(user: str) -> dict:
     return {"queries": ["family-owned plumbing company Austin TX", "emergency plumber Round Rock TX"],
             "target_titles": ["Owner", "General Manager"], "company_type": "local plumbing company",
-            "exclusions": ["national franchises"]}
+            "exclusions": ["national franchises"],
+            "local": {"is_local": False, "area": "", "osm_tags": []}}
 
 
 def _fake_source_search(user: str) -> dict:
@@ -212,7 +213,7 @@ def _fake_source_pick(user: str) -> dict:
 def _fake_source_contact(user: str) -> dict:
     m = re.search(r'Emails found: \["([^"]+)"', user)
     return {"email": m.group(1) if m else "", "first_name": "Sam", "last_name": "Rivera",
-            "title": "Owner", "company": ""}
+            "title": "Owner", "company": "", "fits": True, "fit_reason": "Local plumbing company."}
 
 
 def _fake_mine(user: str) -> dict:
