@@ -12,11 +12,12 @@ dependencies = [
     "jinja2>=3.1",
     "python-multipart>=0.0.9",
     "cryptography>=42",
+    # Postgres driver for hosted installs. A core dependency because Vercel installs from this file.
+    "psycopg[binary]>=3.2",
 ]
 
 [project.optional-dependencies]
-postgres = ["psycopg[binary]>=3.2"]
-dev = ["pytest>=8", "psycopg[binary]>=3.2"]
+dev = ["pytest>=8"]
 
 [project.scripts]
 finley = "finley.cli:main"
