@@ -33,7 +33,7 @@ def _signups_closed(request: Request) -> bool:
 def signup_page(request: Request, next: str = "/app/welcome"):
     if current_user(request):
         return RedirectResponse("/app", status_code=303)
-    return render(request, "public/signup.html", error="", closed=_signups_closed(request), next=next, form={})
+    return render(request, "site/signup.html", error="", closed=_signups_closed(request), next=next, form={})
 
 
 @router.post("/signup")
@@ -44,7 +44,7 @@ def signup(request: Request, email: str = Form(...), password: str = Form(...), 
     try:
         uid = accounts.create_user(services(request).db, email, password, name)
     except AccountError as e:
-        return render(request, "public/signup.html", status_code=400, error=str(e), closed=False, next=next,
+        return render(request, "site/signup.html", status_code=400, error=str(e), closed=False, next=next,
                       form={"email": email, "name": name})
     return _logged_in(request, uid, next)
 
@@ -53,7 +53,7 @@ def signup(request: Request, email: str = Form(...), password: str = Form(...), 
 def login_page(request: Request, next: str = "/app"):
     if current_user(request):
         return RedirectResponse(safe_next(next), status_code=303)
-    return render(request, "public/login.html", error="", next=next, email="",
+    return render(request, "site/login.html", error="", next=next, email="",
                   signups_open=not _signups_closed(request))
 
 
@@ -61,7 +61,7 @@ def login_page(request: Request, next: str = "/app"):
 def login(request: Request, email: str = Form(...), password: str = Form(...), next: str = Form("/app")):
     uid = accounts.authenticate(services(request).db, email, password)
     if uid is None:
-        return render(request, "public/login.html", error="That email and password don't match.",
+        return render(request, "site/login.html", error="That email and password don't match.",
                       next=next, email=email, signups_open=not _signups_closed(request))
     return _logged_in(request, uid, next)
 

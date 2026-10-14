@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("/")
 def landing(request: Request):
-    return render(request, "public/landing.html", n_formats=len(FORMATS))
+    return render(request, "site/landing.html", n_formats=len(FORMATS))
 
 
 @router.get("/healthz")
