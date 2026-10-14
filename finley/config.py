@@ -29,6 +29,9 @@ class Settings:
     judge_model: str = "claude-haiku-5-5"
     writer_model: str = "claude-opus-5-5"
     writer_effort: str = "high"
+    # Lead sourcing: Haiku plans the searches, runs them with web search, and picks contacts.
+    sourcing_model: str = "claude-haiku-5-5"
+    sourcing_searches_per_query: int = 2
     # Writing gates
     judge_min_score: float = 4.0
     max_rewrites: int = 2
@@ -44,6 +47,7 @@ class Settings:
     # Sources
     treg_base_url: str = "https://treg.to"
     treg_token: str = ""
+    hunter_api_key: str = ""
     extra: dict = field(default_factory=dict)
 
     @classmethod
@@ -60,6 +64,8 @@ class Settings:
             judge_model=env.get("FINLEY_JUDGE_MODEL", cls.judge_model),
             writer_model=env.get("FINLEY_WRITER_MODEL", cls.writer_model),
             writer_effort=env.get("FINLEY_WRITER_EFFORT", cls.writer_effort),
+            sourcing_model=env.get("FINLEY_SOURCING_MODEL", cls.sourcing_model),
+            sourcing_searches_per_query=int(env.get("FINLEY_SEARCHES_PER_QUERY", cls.sourcing_searches_per_query)),
             judge_min_score=float(env.get("FINLEY_JUDGE_MIN_SCORE", cls.judge_min_score)),
             max_rewrites=int(env.get("FINLEY_MAX_REWRITES", cls.max_rewrites)),
             smtp_host=env.get("SMTP_HOST", ""),
@@ -72,4 +78,5 @@ class Settings:
             daily_cap_per_inbox=int(env.get("DAILY_CAP_PER_INBOX", cls.daily_cap_per_inbox)),
             treg_base_url=env.get("TREG_BASE_URL", cls.treg_base_url),
             treg_token=env.get("TREG_TOKEN", ""),
+            hunter_api_key=env.get("HUNTER_API_KEY", ""),
         )

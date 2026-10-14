@@ -12,6 +12,7 @@ PRICES: dict[str, tuple[float, float, float]] = {
     "claude-opus-5-5": (4.00, 20.00, 0.20),
 }
 BATCH_DISCOUNT = 0.5
+WEB_SEARCH_USD = 0.01  # $10 per 1,000 searches, on top of tokens
 
 
 def cost_usd(model: str, input_tokens: int, output_tokens: int, cache_read_tokens: int = 0,
