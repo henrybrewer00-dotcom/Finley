@@ -1,48 +1,53 @@
 {% extends "app/base.html" %}
 {% block title %}Find leads{% endblock %}
 {% block content %}
-<div class="page-head">
-  <div><h1>Find leads</h1><p>Describe who you want to reach. Finley searches the web for matching companies, reads their websites, and finds the right person and their email.</p></div>
+<div class="find-hero">
+  <h1>Who do you want to <em>reach</em>?</h1>
+  <p>Describe your ideal customer in plain English. Finley searches the web for companies that fit, reads their websites, and finds the right person and their email.</p>
 </div>
 
-<form class="card" id="find-form" method="post" action="{{ '/app/campaigns/' ~ campaign ~ '/find-leads' if campaign else '#' }}">
-  <div class="card-body stack" style="--gap:14px">
-    <label class="field">
-      <span class="label">Your ideal customer</span>
-      <textarea class="textarea" name="description" id="find-prompt" rows="3" required style="font-size:16px;min-height:96px"
+<form id="find-form" method="post" action="{{ '/app/campaigns/' ~ campaign ~ '/find-leads' if campaign else '#' }}" style="max-width:860px;margin:0 auto">
+  <div class="card prompt-card">
+    <div class="card-body" style="padding:18px 20px 14px">
+      <label class="sr-only" for="find-prompt">Your ideal customer</label>
+      <textarea class="textarea prompt" name="description" id="find-prompt" rows="3" required
         placeholder="Owner-operated plumbing companies in Austin, TX with 5 to 50 employees that offer 24/7 emergency service">{{ prompt or "" }}</textarea>
-    </label>
-    <div class="row" style="--gap:6px">
-      <span class="faint small">Try:</span>
-      {% for ex in [
-        "Dental practices in Phoenix with 2+ locations",
-        "Independent coffee roasters in Oregon that sell wholesale",
-        "Marketing agencies in Chicago with 10 to 50 people",
-        "Family-owned HVAC companies in Dallas"] %}
-      <button type="button" class="btn btn-sm" style="white-space:normal;height:auto;min-height:28px;text-align:left" data-example="{{ ex }}">{{ ex }}</button>
-      {% endfor %}
+      <div class="row between" style="margin-top:10px">
+        <label class="check small muted"><input type="checkbox" name="dry_run" value="true" id="find-demo" {{ "checked" if not has_key }}> Demo search (sample companies, no cost)</label>
+        <button class="btn btn-glow btn-lg" id="find-btn">{{ ui.icon("search") }}Find leads</button>
+      </div>
     </div>
-    <div class="grid grid-3" style="gap:14px">
-      <label class="field"><span class="label">Save leads to</span>
-        <select class="select" name="campaign_id" id="find-campaign">
-          <option value="new">A new campaign</option>
-          {% for c in campaigns %}<option value="{{ c.id }}" {{ "selected" if c.id == campaign }}>{{ c.name }}</option>{% endfor %}
-        </select></label>
-      <label class="field"><span class="label">How many leads</span>
-        <select class="select" name="limit" id="find-limit">{% for n in [10, 25, 50, 100] %}<option {{ "selected" if n == 25 }}>{{ n }}</option>{% endfor %}</select></label>
-      <label class="field"><span class="label">Skip domains <span class="faint">(optional)</span></span>
-        <input class="input" name="exclude_domains" id="find-exclude" placeholder="customers, competitors"></label>
-    </div>
-    <label class="field {{ 'hidden' if campaign }}" id="find-offer-field"><span class="label">What you sell <span class="faint">(for the new campaign's emails)</span></span>
-      <textarea class="textarea" id="find-offer" rows="2" placeholder="We answer after-hours calls for plumbing shops so emergency jobs get booked instead of going to voicemail.">{{ offer }}</textarea></label>
-    {% if not has_key %}
-    <div class="alert alert-warn">{{ ui.icon("key") }}<div>Add your Anthropic API key in <a href="/app/settings#ai">Settings</a> to search the real web{% if not can_store_secrets %}, or paste it below for this search only{% endif %}. Until then, try a demo search with sample companies.</div></div>
-    {% if not can_store_secrets %}<label class="field"><span class="label">Anthropic API key <span class="faint">(used for this search only, never stored)</span></span><input class="input mono" type="password" id="find-key" autocomplete="off" placeholder="sk-ant-…"></label>{% endif %}
-    {% endif %}
   </div>
-  <div class="card-foot row between">
-    <label class="check small"><input type="checkbox" name="dry_run" value="true" id="find-demo" {{ "checked" if not has_key }}> Demo search (sample companies, no cost)</label>
-    <button class="btn btn-primary" id="find-btn">{{ ui.icon("search") }}Find leads</button>
+  <div class="chips">
+    {% for ex in [
+      "Dental practices in Phoenix with 2+ locations",
+      "Independent coffee roasters in Oregon that sell wholesale",
+      "Marketing agencies in Chicago with 10 to 50 people",
+      "Family-owned HVAC companies in Dallas"] %}
+    <button type="button" class="chip" data-example="{{ ex }}">{{ ex }}</button>
+    {% endfor %}
+  </div>
+
+  <div class="card" style="margin-top:22px">
+    <div class="card-body stack" style="--gap:14px">
+      <div class="options">
+        <label class="field"><span class="label">Save leads to</span>
+          <select class="select" name="campaign_id" id="find-campaign">
+            <option value="new">A new campaign</option>
+            {% for c in campaigns %}<option value="{{ c.id }}" {{ "selected" if c.id == campaign }}>{{ c.name }}</option>{% endfor %}
+          </select></label>
+        <label class="field"><span class="label">How many leads</span>
+          <select class="select" name="limit" id="find-limit">{% for n in [10, 25, 50, 100] %}<option {{ "selected" if n == 25 }}>{{ n }}</option>{% endfor %}</select></label>
+        <label class="field"><span class="label">Skip domains <span class="faint">(optional)</span></span>
+          <input class="input" name="exclude_domains" id="find-exclude" placeholder="customers, competitors"></label>
+      </div>
+      <label class="field {{ 'hidden' if campaign }}" id="find-offer-field"><span class="label">What you sell <span class="faint">(for the new campaign's emails)</span></span>
+        <textarea class="textarea" id="find-offer" rows="2" placeholder="We answer after-hours calls for plumbing shops so emergency jobs get booked instead of going to voicemail.">{{ offer }}</textarea></label>
+      {% if not has_key %}
+      <div class="alert alert-warn">{{ ui.icon("key") }}<div>Add your Anthropic API key in <a href="/app/settings#ai">Settings</a> to search the real web{% if not can_store_secrets %}, or paste it below for this search only{% endif %}. Until then, try a demo search with sample companies.</div></div>
+      {% if not can_store_secrets %}<label class="field"><span class="label">Anthropic API key <span class="faint">(used for this search only, never stored)</span></span><input class="input mono" type="password" id="find-key" autocomplete="off" placeholder="sk-ant-…"></label>{% endif %}
+      {% endif %}
+    </div>
   </div>
 </form>
 

@@ -104,3 +104,28 @@
 .lp-foot .lp-wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .lp-foot a { color: var(--text-2); text-decoration: none; margin-left: 18px; }
 @media (max-width: 760px) { .lp-links { display: none; } .hero { padding-top: 56px; } .section { padding: 64px 0; } .lp-wrap { padding: 0 16px; } }
+
+/* ---------- polish ---------- */
+.hero { position: relative; overflow: hidden; background:
+  radial-gradient(700px 380px at 25% -60px, rgba(99, 102, 241, .20), transparent 70%),
+  radial-gradient(700px 380px at 80% -40px, rgba(217, 70, 239, .14), transparent 70%); }
+.hero::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px; -webkit-mask-image: radial-gradient(600px 320px at 50% 0, #000, transparent 75%); mask-image: radial-gradient(600px 320px at 50% 0, #000, transparent 75%); }
+.hero > * { position: relative; }
+.hero h1 em, .final h2 em { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.eyebrow b { background: var(--grad); }
+.mock { box-shadow: 0 30px 80px rgba(49, 46, 129, .18), 0 0 0 1px var(--border); border: 0; }
+.mock-prompt { border: 1.5px solid transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--grad) border-box; }
+.strip { background: var(--sb-bg); border-color: var(--sb-border); }
+.strip .stat { border-color: var(--sb-border); }
+.strip .stat b { background: linear-gradient(135deg, #a5b4fc, #f0abfc); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.strip .stat span { color: #9a9cba; }
+.step::before { background: var(--grad); box-shadow: 0 4px 12px rgba(139, 92, 246, .3); }
+.feature .ic { background: var(--grad); color: #fff; box-shadow: 0 6px 16px rgba(139, 92, 246, .25); }
+.feature, .step { transition: transform .15s, box-shadow .15s; }
+.feature:hover, .step:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.plan.featured { border-color: transparent; background: linear-gradient(var(--surface), var(--surface)) padding-box, var(--grad) border-box; border: 1.5px solid transparent; box-shadow: 0 20px 50px rgba(99, 102, 241, .18); }
+.final { background: var(--sb-bg); color: #fff; }
+.final p { color: #a4a6c2; }
+.lp .btn-primary { background: var(--grad); box-shadow: 0 6px 20px rgba(139, 92, 246, .35), inset 0 1px 0 rgba(255,255,255,.25); }

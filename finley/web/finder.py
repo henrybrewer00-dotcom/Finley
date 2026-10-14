@@ -52,6 +52,16 @@ def find_page(request: Request, campaign: int | None = None):
                   has_key=llm_for(request) is not None, can_store_secrets=services(request).vault.enabled, offer=profile(request).get("company_description", ""))
 
 
+def short_name(icp: str, limit: int = 44) -> str:
+    """A short campaign name from a description: "Plumbing companies in Austin" from the full sentence."""
+    import re
+
+    text = re.split(r"\s+(?:with|that|who|which|where|offering)\s+|[,.;(]", icp.strip(), maxsplit=1)[0].strip()
+    if len(text) > limit:
+        text = text[:limit].rsplit(" ", 1)[0] + "…"
+    return (text[:1].upper() + text[1:]) or "New campaign"
+
+
 @router.post("/api/campaigns")
 def create_campaign_api(request: Request, body: dict = Body(default={})):
     """Create a campaign from the Find page: {name, icp, offer}. Returns {id}."""
@@ -59,7 +69,7 @@ def create_campaign_api(request: Request, body: dict = Body(default={})):
     icp = str(body.get("icp") or "").strip()
     if not icp:
         return JSONResponse({"error": "Describe your ideal customer first."}, status_code=400)
-    name = str(body.get("name") or "").strip() or (icp[:60] + ("…" if len(icp) > 60 else ""))
+    name = str(body.get("name") or "").strip() or short_name(icp)
     offer = str(body.get("offer") or "").strip() or profile(request).get("company_description", "")
     cid = services(request).db.insert("campaigns", {
         "user_id": user["id"], "name": name, "offer": offer, "icp": icp, "proof": "", "voice_samples": "",
