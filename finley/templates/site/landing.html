@@ -15,48 +15,59 @@
 <section class="hero">
   <div class="lp-wrap">
     <a class="eyebrow" href="https://github.com/henrybrewer00-dotcom/Finley"><b>Open source</b>Runs on your own Claude API key {{ ui.icon("arrow-right") }}</a>
-    <h1>Describe your customer.<br><em>Finley finds them</em> and writes the email.</h1>
-    <p class="lead">AI lead generation that searches the live web for companies that fit, finds the right person and their email, scores every lead, and writes researched cold emails you'd actually send. About 2 cents a lead.</p>
-    <div class="cta">
-      <a class="btn btn-primary btn-lg" href="{{ '/app' if user else '/signup' }}">Start finding leads {{ ui.icon("arrow-right") }}</a>
-      <a class="btn btn-lg" href="https://github.com/henrybrewer00-dotcom/Finley">{{ ui.icon("github") }}Self-host it free</a>
+    <h1>Finley finds your <em>next customers.</em></h1>
+    <p class="lead">Describe who you sell to. Finley searches the live web, finds the right person and their email, scores every lead, and writes a researched first email. You approve, it sends. About 2 cents a lead.</p>
+
+    <form class="hero-box" id="hero-box" action="{{ '/app/find' if user else '/signup' }}" method="get">
+      <div class="mode-tabs">
+        <button type="button" class="mode-tab active" data-mode="describe">{{ ui.icon("edit") }}Describe a customer</button>
+        <button type="button" class="mode-tab" data-mode="like">{{ ui.icon("globe") }}Companies like a website <span class="new">New</span></button>
+      </div>
+      <div class="hero-input">
+        <input id="hero-q" placeholder="Dental practices in Phoenix opening a second location" aria-label="Who do you want to reach?">
+        <button class="btn btn-dark">Find leads {{ ui.icon("arrow-right") }}</button>
+      </div>
+      <div class="hero-note">Free to use with your own Claude key. No credit card, no seats, no contracts.</div>
+    </form>
+  </div>
+</section>
+
+<section class="showcase" id="showcase">
+  <div class="lp-wrap">
+    <div class="show-tabs" role="tablist">
+      <a class="show-tab active" href="#showcase">Find leads</a>
+      <a class="show-tab" href="#how">Score every lead</a>
+      <a class="show-tab" href="#emails">Write the email</a>
+      <a class="show-tab" href="#emails">Review and send</a>
+      <a class="show-tab" href="#everything">Measure replies</a>
     </div>
-    <p class="fine">No credit card. No per-seat fees. Your data stays yours.</p>
-
-    <div class="mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i><span>finley · Find leads</span></div>
-      <div class="mock-body">
-        <div class="mock-left">
-          <div class="mock-prompt">{{ ui.icon("search") }}<span>Owner-operated plumbing companies in Austin with 5 to 50 staff that offer 24/7 emergency service</span></div>
-          <div class="mock-table">
-            <div class="mock-row"><span>Company</span><span>Contact</span><span>Why it fits</span><span>Fit</span></div>
-            <div class="mock-row"><span><b>Rivera Plumbing</b><br><span class="sub">riveraplumbing.com</span></span><span>Sam Rivera<br><span class="sub">Owner</span></span><span class="sub">Family-owned, 24/7 emergency line, hiring a dispatcher</span><span class="score score-A">88</span></div>
-            <div class="mock-row"><span><b>Lone Star Drains</b><br><span class="sub">lonestardrains.com</span></span><span>Dana Ortiz<br><span class="sub">General Manager</span></span><span class="sub">Emergency drain service across Round Rock</span><span class="score score-A">82</span></div>
-            <div class="mock-row"><span><b>Barton Creek Plumbing</b><br><span class="sub">bartoncreekplumbing.com</span></span><span>Lee Chen<br><span class="sub">Founder</span></span><span class="sub">Opened a second location in Cedar Park</span><span class="score score-B">71</span></div>
-            <div class="mock-row"><span><b>Hill Country Pipe Co.</b><br><span class="sub">hcpipe.com</span></span><span>Jo Patel<br><span class="sub">Owner</span></span><span class="sub">Residential repair, 12 staff</span><span class="score score-B">66</span></div>
-          </div>
-        </div>
-        <div class="mock-right">
-          <div class="mock-email">
-            <div class="hd">To Sam Rivera · Format: Trigger event</div>
-            <div class="subj">your dispatcher opening</div>
-            <div class="bd">Hi Sam,
-
-Saw you're <span class="mark">hiring a dispatcher</span> to cover your <span class="mark">24/7 emergency line</span>. While that seat's open, who picks up at 2am?
-
-We answer after-hours calls for plumbing shops and book the job straight into your calendar.
-
-Worth a look while you hire?
-
-Alex</div>
-          </div>
-          <div class="mock-checks">
-            <span class="badge badge-green">{{ ui.icon("check") }}Every claim sourced</span>
-            <span class="badge badge-green">{{ ui.icon("check") }}54 words</span>
-            <span class="badge badge-green">{{ ui.icon("check") }}No spam phrases</span>
-            <span class="badge badge-violet">Judge 4.6/5</span>
-          </div>
-        </div>
+    <div class="app-mock" aria-hidden="true">
+      <div class="am-rail"><span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 20V5h10M7 12h7"/></svg></span>{{ ui.icon("home") }}<b>{{ ui.icon("search") }}</b>{{ ui.icon("send") }}{{ ui.icon("inbox") }}{{ ui.icon("chart") }}</div>
+      <div class="am-chat">
+        <div class="am-crumb">{{ ui.icon("search") }} Find leads <span>/</span> Plumbing companies in Austin</div>
+        <div class="msg msg-user">Owner-operated plumbing companies in Austin with 24/7 emergency service</div>
+        <div class="msg msg-agent"><div class="agent-ic">{{ ui.logo() }}</div><div>Found <b>38</b> plumbing companies in the Austin area that advertise emergency service, with the owner or manager and a published email for each. Sorted by fit.
+          <ul class="steps-done"><li>Searched 6 queries across the web and maps</li><li>Read 52 company websites</li><li>Kept 38 with a public email</li></ul></div></div>
+        <div class="msg msg-user">Only ones that are hiring</div>
+        <div class="msg msg-agent"><div class="agent-ic">{{ ui.logo() }}</div><div>Narrowed to <b>11</b> that list open roles on their site. Want me to write their emails?</div></div>
+        <div class="am-follow">Ask a follow-up… <span class="icon-btn">{{ ui.icon("arrow-right") }}</span></div>
+      </div>
+      <div class="am-sheet">
+        <div class="sheet-head"><div class="grow"><h2>Plumbing companies in Austin</h2><div class="row" style="--gap:6px;margin-top:6px"><span class="tag">24/7 emergency</span><span class="tag">Owner-operated</span><span class="tag">5 to 50 staff</span></div></div><span class="btn btn-sm">{{ ui.icon("plus") }}Get more leads</span><span class="btn btn-sm btn-primary">{{ ui.icon("sparkles") }}Write emails</span></div>
+        <div class="sheet-stats"><div><span>Leads</span><b>38</b></div><div><span>Companies checked</span><b>52</b></div><div><span>Cost per lead</span><b>$0.02</b></div></div>
+        <table class="sheet">
+          <thead><tr><th class="rn"></th><th>{{ ui.icon("target") }}Fit</th><th>{{ ui.icon("building") }}Company</th><th>{{ ui.icon("user") }}Contact</th><th>{{ ui.icon("sparkles") }}Why it fits</th></tr></thead>
+          <tbody>
+            <tr><td class="rn"></td><td><span class="fit fit-A"><i></i>88</span></td><td><div class="co"><span class="co-ic">R</span><div><div class="cell-main">Rivera Plumbing</div><span class="cell-sub">riveraplumbing.com</span></div></div></td><td>Sam Rivera<span class="cell-sub">Owner</span></td><td class="why">24/7 emergency line, hiring a dispatcher</td></tr>
+            <tr><td class="rn"></td><td><span class="fit fit-A"><i></i>84</span></td><td><div class="co"><span class="co-ic">L</span><div><div class="cell-main">Lone Star Drains</div><span class="cell-sub">lonestardrains.com</span></div></div></td><td>Dana Ortiz<span class="cell-sub">General Manager</span></td><td class="why">Emergency drain service across Round Rock</td></tr>
+            <tr><td class="rn"></td><td><span class="fit fit-A"><i></i>79</span></td><td><div class="co"><span class="co-ic">B</span><div><div class="cell-main">Barton Creek Plumbing</div><span class="cell-sub">bartoncreekplumbing.com</span></div></div></td><td>Lee Chen<span class="cell-sub">Founder</span></td><td class="why">Opened a second location in Cedar Park</td></tr>
+            <tr><td class="rn"></td><td><span class="fit fit-B"><i></i>74</span></td><td><div class="co"><span class="co-ic">H</span><div><div class="cell-main">Hill Country Pipe Co.</div><span class="cell-sub">hcpipe.com</span></div></div></td><td>Jo Patel<span class="cell-sub">Owner</span></td><td class="why">Residential repair, 12 staff, family-run</td></tr>
+            <tr><td class="rn"></td><td><span class="fit fit-B"><i></i>71</span></td><td><div class="co"><span class="co-ic">E</span><div><div class="cell-main">Eastside Rooter</div><span class="cell-sub">eastsiderooter.com</span></div></div></td><td>Maria Gómez<span class="cell-sub">Owner</span></td><td class="why">New commercial service line this spring</td></tr>
+            <tr><td class="rn"></td><td><span class="fit fit-B"><i></i>68</span></td><td><div class="co"><span class="co-ic">C</span><div><div class="cell-main">Capital City Plumbing</div><span class="cell-sub">capcityplumb.com</span></div></div></td><td>Ben Okafor<span class="cell-sub">Operations Manager</span></td><td class="why">Hiring two licensed plumbers</td></tr>
+            <tr><td class="rn"></td><td><span class="fit fit-B"><i></i>64</span></td><td><div class="co"><span class="co-ic">P</span><div><div class="cell-main">Pflugerville Pipe Pros</div><span class="cell-sub">pfpipepros.com</span></div></div></td><td>Ana Ruiz<span class="cell-sub">Co-owner</span></td><td class="why">Emergency calls advertised on homepage</td></tr>
+            <tr><td class="rn"></td><td><span class="fit fit-B"><i></i>61</span></td><td><div class="co"><span class="co-ic">W</span><div><div class="cell-main">Westlake Water Works</div><span class="cell-sub">westlakewaterworks.com</span></div></div></td><td>Tom Hale<span class="cell-sub">Owner</span></td><td class="why">Water heater and repiping specialist</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -121,7 +132,7 @@ Alex</div>
   </div>
 </section>
 
-<section class="section">
+<section class="section" id="everything">
   <div class="lp-wrap">
     <div class="section-head"><div class="kicker">Everything in one place</div><h2>Find, score, write, send, measure</h2></div>
     <div class="features">
@@ -194,4 +205,20 @@ Alex</div>
   </div>
 </footer>
 </div>
+<script>
+(function () {
+  var form = document.getElementById("hero-box"), q = document.getElementById("hero-q"), mode = "describe";
+  var ph = { describe: "Dental practices in Phoenix opening a second location", like: "yourbestcustomer.com" };
+  form.querySelectorAll(".mode-tab").forEach(function (t) { t.addEventListener("click", function () {
+    mode = t.dataset.mode; form.querySelectorAll(".mode-tab").forEach(function (x) { x.classList.toggle("active", x === t); });
+    q.placeholder = ph[mode]; q.focus(); }); });
+  form.addEventListener("submit", function (ev) {
+    ev.preventDefault();
+    var text = q.value.trim() || q.placeholder;
+    if (mode === "like") text = "Companies similar to " + text + ": same industry, size and kind of customer";
+    var find = "/app/find?q=" + encodeURIComponent(text);
+    location.href = {{ 'true' if user else 'false' }} ? find : "/signup?next=" + encodeURIComponent(find);
+  });
+})();
+</script>
 {% endblock %}

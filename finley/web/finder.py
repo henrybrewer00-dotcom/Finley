@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/app/find")
-def find_page(request: Request, campaign: int | None = None):
+def find_page(request: Request, campaign: int | None = None, q: str = ""):
     user = require_user(request)
     db = services(request).db
     campaigns = db.all("SELECT id, name, icp FROM campaigns WHERE user_id = ? ORDER BY id DESC", user["id"])
@@ -47,8 +47,17 @@ def find_page(request: Request, campaign: int | None = None):
                          "description": starts.get(r["campaign_id"], ""), "counts": dict(counts),
                          "cost_usd": d.get("cost_usd", 0)})
     selected = next((c for c in campaigns if c["id"] == campaign), None)
+    leads = []
+    if selected:
+        for r in db.all("SELECT id, email, first_name, last_name, title, company, website, score, extra_json "
+                        "FROM leads WHERE campaign_id = ? ORDER BY COALESCE(score, -1) DESC, id LIMIT 500", selected["id"]):
+            extra = json.loads(r["extra_json"] or "{}")
+            leads.append({**{k: r[k] for k in ("id", "email", "first_name", "last_name", "title", "company",
+                                                "website", "score")},
+                          "why_fit": extra.get("why_fit", ""), "email_source": extra.get("email_source", "")})
     return render(request, "app/find.html", active="find", campaigns=campaigns, campaign=campaign,
-                  prompt=selected["icp"] if selected else "", searches=searches,
+                  selected=selected, leads=leads,
+                  prompt=selected["icp"] if selected else q[:500], searches=searches,
                   has_key=llm_for(request) is not None, can_store_secrets=services(request).vault.enabled, offer=profile(request).get("company_description", ""))
 
 
@@ -74,7 +83,7 @@ def create_campaign_api(request: Request, body: dict = Body(default={})):
     cid = services(request).db.insert("campaigns", {
         "user_id": user["id"], "name": name, "offer": offer, "icp": icp, "proof": "", "voice_samples": "",
         "created_at": now()})
-    return {"id": cid}
+    return {"id": cid, "name": name}
 
 
 def _source(request: Request, cid: int, description: str, limit: int, exclude_domains: str, dry_run: bool,

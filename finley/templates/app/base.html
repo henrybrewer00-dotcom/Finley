@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Finley{% endblock %} · Finley</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/finley.css">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 {% block head %}{% endblock %}
@@ -13,20 +13,20 @@
 <body>
 <div class="app">
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="/app">{{ ui.logo() }}Finley</a>
-    <a class="btn btn-primary sidebar-cta" href="/app/find">{{ ui.icon("search") }}Find leads</a>
+    <a class="brand" href="/app" title="Finley">{{ ui.logo() }}<span class="lbl">Finley</span></a>
+    <a class="sidebar-cta" href="/app/find" title="New search" aria-label="New search">{{ ui.icon("plus") }}<span class="lbl">New search</span></a>
     {% for item in nav %}
-    <a class="nav-link {{ 'active' if active == item.key }}" href="{{ item.href }}">{{ ui.icon(item.icon) }}{{ item.label }}
+    <a class="nav-link {{ 'active' if active == item.key }}" href="{{ item.href }}" title="{{ item.label }}">{{ ui.icon(item.icon) }}<span class="lbl">{{ item.label }}</span>
       {% if item.key == "review" and review_count %}<span class="count">{{ review_count }}</span>{% endif %}</a>
     {% endfor %}
     {% block sidebar_extra %}{% endblock %}
     <div class="sidebar-foot">
       {% for item in nav_bottom %}
-      <a class="nav-link {{ 'active' if active == item.key }}" href="{{ item.href }}">{{ ui.icon(item.icon) }}{{ item.label }}</a>
+      <a class="nav-link {{ 'active' if active == item.key }}" href="{{ item.href }}" title="{{ item.label }}">{{ ui.icon(item.icon) }}<span class="lbl">{{ item.label }}</span></a>
       {% endfor %}
-      <a class="nav-link" href="https://github.com/henrybrewer00-dotcom/Finley" target="_blank" rel="noopener">{{ ui.icon("github") }}Open source</a>
+      <a class="nav-link" href="https://github.com/henrybrewer00-dotcom/Finley" target="_blank" rel="noopener" title="Open source">{{ ui.icon("github") }}<span class="lbl">GitHub</span></a>
       {% if user %}
-      <div class="usercard">
+      <div class="usercard" title="{{ user.email }}">
         <span class="avatar">{{ ui.initials(user.name or user.email) }}</span>
         <div class="grow">
           <div class="truncate" style="font-weight:560">{{ user.name or "You" }}</div>

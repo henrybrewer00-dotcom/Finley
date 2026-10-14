@@ -1,99 +1,130 @@
 {% extends "app/base.html" %}
 {% block title %}Find leads{% endblock %}
-{% block content %}
-<div class="find-hero">
-  <h1>Who do you want to <em>reach</em>?</h1>
-  <p>Describe your ideal customer in plain English. Finley searches the web for companies that fit, reads their websites, and finds the right person and their email.</p>
-</div>
+{% block main %}
+{# One workspace: the conversation on the left, the lead sheet on the right. Before the first
+   search there is no sheet yet, so the prompt sits in the middle of the page. #}
+<div class="ws" id="ws" data-state="{{ 'sheet' if leads else 'empty' }}" data-campaign="{{ campaign or '' }}" data-demo-default="{{ '' if has_key else '1' }}">
 
-<form id="find-form" method="post" action="{{ '/app/campaigns/' ~ campaign ~ '/find-leads' if campaign else '#' }}" style="max-width:860px;margin:0 auto">
-  <div class="card prompt-card">
-    <div class="card-body" style="padding:18px 20px 14px">
-      <label class="sr-only" for="find-prompt">Your ideal customer</label>
-      <textarea class="textarea prompt" name="description" id="find-prompt" rows="3" required
-        placeholder="Owner-operated plumbing companies in Austin, TX with 5 to 50 employees that offer 24/7 emergency service">{{ prompt or "" }}</textarea>
-      <div class="row between" style="margin-top:10px">
-        <label class="check small muted"><input type="checkbox" name="dry_run" value="true" id="find-demo" {{ "checked" if not has_key }}> Demo search (sample companies, no cost)</label>
-        <button class="btn btn-glow btn-lg" id="find-btn">{{ ui.icon("search") }}Find leads</button>
+  <section class="ws-empty">
+    <div class="ws-empty-inner">
+      {% if msg or err %}<div style="margin-bottom:16px">{{ ui.flash(msg, err) }}</div>{% endif %}
+      <div class="find-hero">
+        <h1>Who do you want to <em>reach</em>?</h1>
+        <p>Describe your ideal customer in plain English. Finley searches the live web for companies that fit, reads their websites, and finds the right person and their email.</p>
       </div>
-    </div>
-  </div>
-  <div class="chips">
-    {% for ex in [
-      "Dental practices in Phoenix with 2+ locations",
-      "Independent coffee roasters in Oregon that sell wholesale",
-      "Marketing agencies in Chicago with 10 to 50 people",
-      "Family-owned HVAC companies in Dallas"] %}
-    <button type="button" class="chip" data-example="{{ ex }}">{{ ex }}</button>
-    {% endfor %}
-  </div>
-
-  <div class="card" style="margin-top:22px">
-    <div class="card-body stack" style="--gap:14px">
-      <div class="options">
-        <label class="field"><span class="label">Save leads to</span>
-          <select class="select" name="campaign_id" id="find-campaign">
-            <option value="new">A new campaign</option>
-            {% for c in campaigns %}<option value="{{ c.id }}" {{ "selected" if c.id == campaign }}>{{ c.name }}</option>{% endfor %}
-          </select></label>
-        <label class="field"><span class="label">How many leads</span>
-          <select class="select" name="limit" id="find-limit">{% for n in [10, 25, 50, 100] %}<option {{ "selected" if n == 25 }}>{{ n }}</option>{% endfor %}</select></label>
-        <label class="field"><span class="label">Skip domains <span class="faint">(optional)</span></span>
-          <input class="input" name="exclude_domains" id="find-exclude" placeholder="customers, competitors"></label>
+      <form id="find-form" class="card prompt-card" autocomplete="off">
+        <div class="mode-tabs" role="tablist">
+          <button type="button" class="mode-tab active" data-mode="describe">{{ ui.icon("edit") }}Describe a customer</button>
+          <button type="button" class="mode-tab" data-mode="like">{{ ui.icon("globe") }}Companies like a website</button>
+        </div>
+        <textarea class="textarea prompt" id="find-prompt" rows="3" required
+          placeholder="Owner-operated plumbing companies in Austin, TX with 5 to 50 employees that offer 24/7 emergency service">{{ prompt or "" }}</textarea>
+        <div class="prompt-foot">
+          <div class="row" style="--gap:8px">
+            <label class="pill-select" title="How many leads">{{ ui.icon("users") }}
+              <select id="find-limit">{% for n in [10, 25, 50, 100] %}<option value="{{ n }}" {{ "selected" if n == 25 }}>{{ n }} leads</option>{% endfor %}</select></label>
+            <label class="pill-select" title="Where leads are saved">{{ ui.icon("send") }}
+              <select id="find-campaign">
+                <option value="new">New campaign</option>
+                {% for c in campaigns %}<option value="{{ c.id }}" {{ "selected" if c.id == campaign }}>{{ c.name }}</option>{% endfor %}
+              </select></label>
+            <label class="pill-check"><input type="checkbox" id="find-demo" {{ "checked" if not has_key }}> Demo</label>
+          </div>
+          <button class="btn btn-dark" id="find-btn">Find leads {{ ui.icon("arrow-right") }}</button>
+        </div>
+      </form>
+      <div class="chips">
+        {% for ex in [
+          "Dental practices in Phoenix with 2+ locations",
+          "Independent coffee roasters in Oregon that sell wholesale",
+          "Marketing agencies in Chicago with 10 to 50 people",
+          "Family-owned HVAC companies in Dallas"] %}
+        <button type="button" class="chip" data-example="{{ ex }}">{{ ex }}</button>
+        {% endfor %}
       </div>
-      <label class="field {{ 'hidden' if campaign }}" id="find-offer-field"><span class="label">What you sell <span class="faint">(for the new campaign's emails)</span></span>
-        <textarea class="textarea" id="find-offer" rows="2" placeholder="We answer after-hours calls for plumbing shops so emergency jobs get booked instead of going to voicemail.">{{ offer }}</textarea></label>
+      <details class="more-options">
+        <summary>More options</summary>
+        <div class="card card-pad stack" style="--gap:14px;margin-top:10px">
+          <label class="field"><span class="label">Skip these domains <span class="faint">(customers, competitors)</span></span>
+            <input class="input" id="find-exclude" placeholder="acme.com, rival.io"></label>
+          <label class="field" id="find-offer-field"><span class="label">What you sell <span class="faint">(used to write the new campaign's emails)</span></span>
+            <textarea class="textarea" id="find-offer" rows="2" placeholder="We answer after-hours calls for plumbing shops so emergency jobs get booked instead of going to voicemail.">{{ offer }}</textarea></label>
+          {% if not has_key and not can_store_secrets %}<label class="field"><span class="label">Anthropic API key <span class="faint">(this search only, never stored)</span></span><input class="input mono" type="password" id="find-key" autocomplete="off" placeholder="sk-ant-…"></label>{% endif %}
+        </div>
+      </details>
       {% if not has_key %}
-      <div class="alert alert-warn">{{ ui.icon("key") }}<div>Add your Anthropic API key in <a href="/app/settings#ai">Settings</a> to search the real web{% if not can_store_secrets %}, or paste it below for this search only{% endif %}. Until then, try a demo search with sample companies.</div></div>
-      {% if not can_store_secrets %}<label class="field"><span class="label">Anthropic API key <span class="faint">(used for this search only, never stored)</span></span><input class="input mono" type="password" id="find-key" autocomplete="off" placeholder="sk-ant-…"></label>{% endif %}
+      <p class="center small muted" style="margin-top:18px">{{ ui.icon("key", "inline-icon") }} Demo mode uses sample companies. <a href="/app/settings#ai">Add your Anthropic key</a> to search the real web.</p>
+      {% endif %}
+
+      {% if searches %}
+      <div class="recent">
+        <div class="recent-title">Recent searches</div>
+        {% for s in searches[:6] %}
+        <a class="recent-item" href="/app/find?campaign={{ s.campaign_id }}">
+          <span class="recent-ic">{{ ui.icon("search") }}</span>
+          <span class="grow"><span class="truncate" style="display:block">{{ s.description or s.campaign_name }}</span>
+            <span class="faint small">{{ s.campaign_name }} · {{ s.counts.leads_added or 0 }} leads · {{ (s.ts or "")[:10] }}</span></span>
+          {{ ui.icon("chevron-right") }}
+        </a>
+        {% endfor %}
+      </div>
       {% endif %}
     </div>
-  </div>
-</form>
+  </section>
 
-<div class="card hidden" id="find-progress" style="margin-top:16px">
-  <div class="card-body stack" style="--gap:10px">
-    <div class="row between small"><span class="row" style="--gap:8px"><span class="spinner" id="find-spinner"></span><span id="find-stage">Planning searches…</span></span><span class="faint" id="find-count"></span></div>
-    <div class="progress"><span id="find-bar" style="width:3%"></span></div>
-  </div>
-</div>
+  <aside class="ws-chat">
+    <div class="ws-chat-head">
+      <a class="crumb" href="/app/find">{{ ui.icon("search") }}Find leads</a>
+      <span class="faint">/</span>
+      <span class="truncate" id="ws-title">{{ selected.name if selected else "New search" }}</span>
+    </div>
+    <div class="ws-thread" id="ws-thread">
+      {% if selected and leads %}
+      <div class="msg msg-user">{{ selected.icp }}</div>
+      <div class="msg msg-agent"><div class="agent-ic">{{ ui.logo() }}</div><div>This campaign has <b>{{ leads|length }}</b> lead{{ "s" if leads|length != 1 }}. Ask for more below, or narrow it down, for example "only ones with 2+ locations".</div></div>
+      {% endif %}
+    </div>
+    <form class="ws-follow" id="ws-follow" autocomplete="off">
+      <textarea id="ws-follow-input" rows="2" placeholder="Ask a follow-up, like &quot;25 more in Houston&quot;"></textarea>
+      <div class="row between">
+        <span class="faint small" id="ws-mode">{{ "Demo mode" if not has_key else "Live web search" }}</span>
+        <button class="icon-btn" aria-label="Send">{{ ui.icon("arrow-right") }}</button>
+      </div>
+    </form>
+  </aside>
 
-<div class="card hidden" id="find-results" style="margin-top:16px">
-  <div class="card-head">
-    <div><h2 id="find-results-title">Leads found</h2><p id="find-results-sub"></p></div>
-    <a class="btn btn-primary" id="find-next" href="#">{{ ui.icon("sparkles") }}Write emails for these</a>
-  </div>
-  <div class="table-wrap"><table class="table">
-    <thead><tr><th>Company</th><th>Contact</th><th>Email</th><th>Why it fits</th></tr></thead>
-    <tbody id="find-rows"></tbody>
-  </table></div>
+  <section class="ws-sheet">
+    <div class="sheet-head">
+      <div class="grow">
+        <h2 id="sheet-title">{{ selected.name if selected else "Leads" }}</h2>
+        <div class="row" style="--gap:6px;margin-top:6px" id="sheet-tags">
+          {% if selected %}<span class="tag">{{ selected.icp|truncate(70) }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="row" style="--gap:8px">
+        <button class="btn" id="sheet-more">{{ ui.icon("plus") }}Get more leads</button>
+        <a class="btn btn-primary {{ '' if leads else 'hidden' }}" id="find-next" href="{{ '/app/campaigns/' ~ campaign ~ '?tab=overview#run' if campaign else '#' }}">{{ ui.icon("sparkles") }}Write emails</a>
+      </div>
+    </div>
+    <div class="sheet-stats">
+      <div><span>Leads</span><b id="st-leads">{{ leads|length }}</b></div>
+      <div><span>Companies checked</span><b id="st-companies">–</b></div>
+      <div><span>No public email</span><b id="st-noemail">–</b></div>
+      <div><span>AI spend</span><b id="st-cost">–</b></div>
+      <div class="grow"></div>
+      <div class="sheet-progress hidden" id="find-progress"><span class="spinner" id="find-spinner"></span><span id="find-stage">Planning searches…</span><span class="faint" id="find-count"></span>
+        <div class="progress"><span id="find-bar" style="width:3%"></span></div></div>
+    </div>
+    <div class="sheet-wrap">
+      <table class="sheet">
+        <thead><tr><th class="rn"></th><th>{{ ui.icon("target") }}Fit</th><th>{{ ui.icon("building") }}Company</th><th>{{ ui.icon("user") }}Contact</th><th>{{ ui.icon("mail") }}Email</th><th>{{ ui.icon("sparkles") }}Why it fits</th></tr></thead>
+        <tbody id="find-rows">
+          {% for l in leads %}{% include "app/_lead_row.html" %}{% endfor %}
+        </tbody>
+      </table>
+      <div class="sheet-empty {{ 'hidden' if leads }}" id="sheet-empty">Leads appear here as Finley finds them.</div>
+    </div>
+  </section>
 </div>
-
-<div class="grid grid-3" style="margin-top:16px" id="find-explainer">
-  <div class="card card-pad stack" style="--gap:6px"><div class="row" style="--gap:8px">{{ ui.icon("globe") }}<h3>Searches the live web</h3></div><p class="muted small">Company websites found through web search, not a stale database someone sold you.</p></div>
-  <div class="card card-pad stack" style="--gap:6px"><div class="row" style="--gap:8px">{{ ui.icon("user") }}<h3>Finds the right person</h3></div><p class="muted small">Reads each company's site for the owner or decision maker. Every email was published by the company or returned by a finder. None are guessed.</p></div>
-  <div class="card card-pad stack" style="--gap:6px"><div class="row" style="--gap:8px">{{ ui.icon("target") }}<h3>Explains every match</h3></div><p class="muted small">Each lead says why it fits, so you can trust the list before Finley writes a word.</p></div>
-</div>
-
-{% if searches %}
-<div class="section-title"><h2>Recent searches</h2></div>
-<div class="card">
-  <div class="table-wrap"><table class="table">
-    <thead><tr><th>Search</th><th>Campaign</th><th class="right">Companies</th><th class="right">Leads added</th><th class="right">Cost</th><th>When</th></tr></thead>
-    <tbody>
-    {% for s in searches %}
-    <tr>
-      <td style="max-width:420px"><div class="truncate">{{ s.description or "–" }}</div></td>
-      <td style="max-width:220px"><a class="truncate" style="display:block" href="/app/campaigns/{{ s.campaign_id }}?tab=leads">{{ s.campaign_name }}</a></td>
-      <td class="right">{{ s.counts.companies_found or 0 }}</td>
-      <td class="right">{{ s.counts.leads_added or 0 }}</td>
-      <td class="right">{{ s.cost_usd|money }}</td>
-      <td class="faint nowrap">{{ (s.ts or "")[:10] }}</td>
-    </tr>
-    {% endfor %}
-    </tbody>
-  </table></div>
-</div>
-{% endif %}
 {% endblock %}
 {% block scripts %}<script>Finley.bindExamples(); Finley.bindFind();</script>{% endblock %}

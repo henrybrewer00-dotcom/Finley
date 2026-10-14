@@ -1,0 +1,11 @@
+{# One row of the lead sheet. finley.js leadRow() renders the same markup for live results. #}
+{%- set site = (l.website or "")|replace("https://", "")|replace("http://", "")|replace("www.", "")|trim("/") -%}
+{%- set who = ((l.first_name or "") ~ " " ~ (l.last_name or ""))|trim -%}
+<tr>
+  <td class="rn"></td>
+  <td>{% if l.score is not none %}<span class="fit fit-{{ band(l.score) }}"><i></i>{{ l.score|round|int }}</span>{% else %}<span class="fit fit-new"><i></i>New</span>{% endif %}</td>
+  <td><div class="co"><span class="co-ic">{{ (l.company or site or "?")[:1]|upper }}</span><div><div class="cell-main">{{ l.company or site }}</div>{% if site %}<a class="cell-sub" href="{{ l.website }}" target="_blank" rel="noopener">{{ site }}</a>{% endif %}</div></div></td>
+  <td>{% if who %}<div>{{ who }}</div><div class="cell-sub">{{ l.title or "" }}</div>{% else %}<span class="cell-sub">Shared inbox</span>{% endif %}</td>
+  <td class="nowrap"><div>{{ l.email }}</div><div class="cell-sub">{{ "Email finder" if l.email_source == "email_finder" else "On their website" }}</div></td>
+  <td class="why">{{ l.why_fit or "" }}</td>
+</tr>

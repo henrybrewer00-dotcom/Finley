@@ -33,77 +33,133 @@
     },
 
     bindFind() {
-      const form = $("#find-form");
-      if (!form) return;
-      const sel = $("#find-campaign"), offerField = $("#find-offer-field");
-      const syncOffer = () => offerField.classList.toggle("hidden", sel.value !== "new");
+      const ws = $("#ws"), form = $("#find-form");
+      if (!ws || !form) return;
+      const prompt = $("#find-prompt"), sel = $("#find-campaign"), thread = $("#ws-thread"), rows = $("#find-rows");
+      const offerField = $("#find-offer-field");
+      const syncOffer = () => offerField && offerField.classList.toggle("hidden", sel.value !== "new");
       sel.addEventListener("change", syncOffer); syncOffer();
+      let mode = "describe", busy = false;
+      let cid = ws.dataset.campaign || "";
+      let base = prompt.value.trim();
+      const totals = { leads: rows.children.length, companies: 0, noEmail: 0, cost: 0 };
+      const placeholders = {
+        describe: "Owner-operated plumbing companies in Austin, TX with 5 to 50 employees that offer 24/7 emergency service",
+        like: "acme.com, or a customer you'd love ten more of",
+      };
+      document.querySelectorAll(".mode-tab").forEach((t) => t.addEventListener("click", () => {
+        mode = t.dataset.mode;
+        document.querySelectorAll(".mode-tab").forEach((x) => x.classList.toggle("active", x === t));
+        prompt.placeholder = placeholders[mode]; prompt.focus();
+      }));
+      const scroll = () => { thread.scrollTop = thread.scrollHeight; };
+      const say = (cls, html) => { thread.insertAdjacentHTML("beforeend", `<div class="msg ${cls}">${html}</div>`); scroll(); return thread.lastElementChild; };
+      const logo = ($(".logo") || { outerHTML: "" }).outerHTML;
+      const agent = (html) => say("msg-agent", `<div class="agent-ic">${logo}</div><div class="agent-body">${html}</div>`);
+      const money = (v) => "$" + (v || 0).toFixed(2);
+      const paint = () => {
+        $("#st-leads").textContent = totals.leads;
+        $("#st-companies").textContent = totals.companies || "–";
+        $("#st-noemail").textContent = totals.companies ? totals.noEmail : "–";
+        $("#st-cost").textContent = totals.companies ? money(totals.cost) : "–";
+        $("#sheet-empty").classList.toggle("hidden", totals.leads > 0);
+      };
 
-      form.addEventListener("submit", async (ev) => {
-        ev.preventDefault();
-        const btn = $("#find-btn"), progress = $("#find-progress"), stage = $("#find-stage"), bar = $("#find-bar");
-        const description = $("#find-prompt").value.trim();
-        const limit = parseInt($("#find-limit").value, 10) || 25;
+      async function run(description, shown) {
+        if (busy || !description) return;
+        busy = true;
+        ws.dataset.state = "sheet";
         const demo = $("#find-demo").checked;
-        if (!description) return;
-        btn.disabled = true;
+        const limit = parseInt($("#find-limit").value, 10) || 25;
+        say("msg-user", esc(shown || description));
+        const msg = agent(`<div class="row" style="--gap:8px"><span class="spinner"></span><span class="stage">Planning searches…</span></div><ul class="steps-done"></ul>`);
+        const stageEl = $(".stage", msg), done = $(".steps-done", msg);
+        const progress = $("#find-progress"), bar = $("#find-bar");
         progress.classList.remove("hidden");
-        $("#find-spinner").classList.remove("hidden");
-        $("#find-explainer") && $("#find-explainer").classList.add("hidden");
         const stages = ["Planning searches…", "Searching the web for matching companies…", "Reading company websites…", "Finding the right person at each company…", "Checking email addresses…"];
-        let si = 0; stage.textContent = stages[0];
-        const rotate = setInterval(() => { si = Math.min(si + 1, stages.length - 1); stage.textContent = stages[si]; }, 7000);
-        const rows = $("#find-rows"), results = $("#find-results");
-        let added = 0, companies = 0, noEmail = 0, cost = 0, cid = sel.value;
+        let si = 0;
+        const setStage = (t) => { stageEl.textContent = t; $("#find-stage").textContent = t; };
+        const rotate = setInterval(() => { si = Math.min(si + 1, stages.length - 1); setStage(stages[si]); }, 7000);
+        let added = 0, companies = 0;
         try {
-          if (cid === "new") {
+          if (!cid || sel.value === "new") {
             const c = await postJSON("/api/campaigns", { icp: description, offer: ($("#find-offer") || {}).value || "" });
             cid = String(c.id);
-            const opt = new Option(description.slice(0, 60), cid, true, true);
-            sel.add(opt); syncOffer();
+            sel.add(new Option(c.name || description.slice(0, 44), cid, true, true)); syncOffer();
+            $("#ws-title").textContent = $("#sheet-title").textContent = c.name || "New campaign";
+            $("#sheet-tags").innerHTML = `<span class="tag">${esc(description.length > 70 ? description.slice(0, 69) + "…" : description)}</span>${demo ? '<span class="tag tag-demo">Demo</span>' : ""}`;
+            history.replaceState(null, "", `/app/find?campaign=${cid}`);
           }
+          $("#find-next").href = `/app/campaigns/${cid}?tab=overview#run`;
           for (let round = 0; round < 6 && added < limit; round++) {
-            const stop = creep(bar, Math.max(3, (100 * added) / limit), Math.min(95, (100 * (added + (limit - added) * 0.8)) / limit), 45);
+            const stop = creep(bar, Math.max(3, (100 * added) / limit), 92, 45);
             let r;
             try {
-              r = await postJSON(`/api/campaigns/${cid}/find-leads`, { description, limit: limit - added, exclude_domains: $("#find-exclude").value, dry_run: demo, api_key: ($("#find-key") || {}).value || "" });
+              r = await postJSON(`/api/campaigns/${cid}/find-leads`, { description, limit: limit - added, exclude_domains: ($("#find-exclude") || {}).value || "", dry_run: demo, api_key: ($("#find-key") || {}).value || "" });
             } finally { stop(); }
             const c = r.counts || {};
-            companies += c.companies_found || 0; noEmail += c.no_email || 0; cost += r.cost_usd || 0;
+            companies += c.companies_found || 0;
+            totals.companies += c.companies_found || 0; totals.noEmail += c.no_email || 0; totals.cost += r.cost_usd || 0;
             (r.leads || []).forEach((l) => rows.insertAdjacentHTML("beforeend", Finley.leadRow(l)));
-            added += c.leads_added || 0;
+            added += c.leads_added || 0; totals.leads += c.leads_added || 0;
+            done.insertAdjacentHTML("beforeend", `<li>Checked ${c.companies_found || 0} companies, added ${c.leads_added || 0} with a public email</li>`);
             $("#find-count").textContent = `${added} of ${limit}`;
             bar.style.width = Math.max(5, (100 * added) / limit) + "%";
+            paint(); scroll();
             if (!c.leads_added || demo) break;
           }
           clearInterval(rotate);
-          $("#find-spinner").classList.add("hidden");
-          stage.textContent = added ? `Done. Added ${added} lead${added === 1 ? "" : "s"}.${demo ? " Demo searches return a few sample companies; add your API key to search the real web." : ""}` : "No new leads with a public email this time. Try a broader description or a different area.";
-          bar.style.width = "100%";
-          results.classList.remove("hidden");
-          $("#find-results-title").textContent = `${added} lead${added === 1 ? "" : "s"} added`;
-          $("#find-results-sub").textContent = `${companies} companies checked · ${noEmail} had no public email · $${cost.toFixed(2)} AI spend`;
-          $("#find-next").href = `/app/campaigns/${cid}?tab=overview#run`;
-          $("#find-next").classList.toggle("hidden", !added);
+          $(".spinner", msg).remove();
+          stageEl.innerHTML = added
+            ? `Found <b>${added}</b> lead${added === 1 ? "" : "s"} from ${companies} companies.${demo ? " Demo searches return a few sample companies; add your API key to search the real web." : ""} Next, I can research each one and write their email.`
+            : "No new leads with a public email this time. Try a broader description or a different area.";
+          if (added) $(".agent-body", msg).insertAdjacentHTML("beforeend", `<div class="row" style="--gap:8px;margin-top:10px"><a class="btn btn-sm btn-primary" href="/app/campaigns/${cid}?tab=overview#run">${$("#find-next").innerHTML}</a><button type="button" class="btn btn-sm" data-more>Find more</button></div>`);
+          $("#find-next").classList.toggle("hidden", totals.leads === 0);
         } catch (e) {
           clearInterval(rotate);
-          $("#find-spinner").classList.add("hidden");
-          stage.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
+          const sp = $(".spinner", msg); sp && sp.remove();
+          stageEl.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`;
         } finally {
-          btn.disabled = false;
+          progress.classList.add("hidden");
+          busy = false; scroll();
         }
+      }
+
+      form.addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const text = prompt.value.trim();
+        if (!text) return;
+        base = mode === "like" ? `Companies similar to ${text}: same industry, size and kind of customer` : text;
+        run(base, text);
       });
+      $("#ws-follow").addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const box = $("#ws-follow-input"), text = box.value.trim();
+        if (!text) return;
+        box.value = "";
+        const more = /^\s*(\d+\s*)?more\b/i.test(text) && text.split(/\s+/).length <= 3;
+        run(more ? base : `${base}. Also: ${text}`, text);
+      });
+      $("#ws-follow-input").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && !ev.shiftKey) { ev.preventDefault(); $("#ws-follow").requestSubmit(); } });
+      prompt.addEventListener("keydown", (ev) => { if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) { ev.preventDefault(); form.requestSubmit(); } });
+      $("#sheet-more").addEventListener("click", () => run(base, "Find more like these"));
+      thread.addEventListener("click", (ev) => { if (ev.target.closest("[data-more]")) run(base, "Find more like these"); });
+      paint();
     },
 
     leadRow(l) {
       const site = (l.website || "").replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/$/, "");
       const name = [l.first_name, l.last_name].filter(Boolean).join(" ");
-      const src = l.email_source === "email_finder" ? '<span class="badge badge-blue">Email finder</span>' : '<span class="badge badge-green">On their website</span>';
-      return `<tr>
-        <td><div class="cell-main">${esc(l.company)}</div><div class="cell-sub">${site ? `<a href="${esc(l.website)}" target="_blank" rel="noopener">${esc(site)}</a>` : ""}</div></td>
-        <td>${name ? `<div>${esc(name)}</div><div class="cell-sub">${esc(l.title || "")}</div>` : '<span class="faint small">Shared inbox</span>'}</td>
-        <td class="nowrap"><div>${esc(l.email)}</div><div style="margin-top:3px">${src}</div></td>
-        <td class="small" style="max-width:380px">${esc(l.why_fit || "")}</td></tr>`;
+      const band = l.score == null ? "" : l.score >= 75 ? "A" : l.score >= 50 ? "B" : l.score >= 25 ? "C" : "D";
+      const fit = band ? `<span class="fit fit-${band}"><i></i>${Math.round(l.score)}</span>` : '<span class="fit fit-new"><i></i>New</span>';
+      const co = l.company || site || "?";
+      return `<tr class="row-new">
+        <td class="rn"></td>
+        <td>${fit}</td>
+        <td><div class="co"><span class="co-ic">${esc(co.charAt(0).toUpperCase())}</span><div><div class="cell-main">${esc(co)}</div>${site ? `<a class="cell-sub" href="${esc(l.website)}" target="_blank" rel="noopener">${esc(site)}</a>` : ""}</div></div></td>
+        <td>${name ? `<div>${esc(name)}</div><div class="cell-sub">${esc(l.title || "")}</div>` : '<span class="cell-sub">Shared inbox</span>'}</td>
+        <td class="nowrap"><div>${esc(l.email)}</div><div class="cell-sub">${l.email_source === "email_finder" ? "Email finder" : "On their website"}</div></td>
+        <td class="why">${esc(l.why_fit || "")}</td></tr>`;
     },
 
     bindRun() {
