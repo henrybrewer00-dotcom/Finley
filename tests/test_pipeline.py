@@ -22,7 +22,7 @@ def test_end_to_end_dry_run(db, llm, settings, campaign_id, csv_text):
     gate = json.loads(e["gate_json"])
     assert gate["passed"] and gate["attempts"] == 1
     tasks = [t for t, _ in llm.calls]
-    assert tasks.count("write") == 2 and tasks.count("judge") == 2
+    assert tasks.count("write") == 2 and tasks.count("judge") == 4  # two variants per lead
     m = campaign_metrics(db, campaign_id)
     assert m["leads"] == 3 and m["drafted"] == 2 and m["filtered"] == 1
 

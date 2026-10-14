@@ -107,7 +107,7 @@ def _fake_score(user: str) -> dict:
 def _fake_research(user: str) -> dict:
     return {"facts": [
         {"id": "f1", "text": "The company's website lists 24/7 emergency service.",
-         "source": "website"},
+         "source": "website", "kind": "service"},
     ], "trigger": "", "summary": "Local service business with an emergency line."}
 
 
@@ -118,11 +118,16 @@ def _fake_pick(user: str) -> dict:
 
 def _fake_write(user: str) -> dict:
     m = re.search(r'"first_name": "([^"]+)"', user)
-    return {
-        "subject": "after-hours calls",
-        "body": f"Hi {m.group(1) if m else 'there'},\n\nSaw that you run 24/7 emergency service. Who answers when a call comes in at 2am?\n\nWe help shops like yours book those jobs instead of losing them to voicemail.\n\nWorth a quick look?\n\nAlex",
-        "claims": [{"text": "you run 24/7 emergency service", "fact_id": "f1"}],
-    }
+    name = m.group(1) if m else "there"
+    claim = [{"text": "you run 24/7 emergency service", "fact_id": "f1"}]
+    return {"emails": [
+        {"subject": "after-hours calls",
+         "body": f"Hi {name},\n\nSaw that you run 24/7 emergency service. Who answers when a call comes in at 2am?\n\nWe help shops like yours book those jobs instead of losing them to voicemail.\n\nWorth a quick look?\n\nAlex",
+         "claims": claim},
+        {"subject": "2am calls",
+         "body": f"Hi {name},\n\nSaw that you run 24/7 emergency service. When the crew is asleep, who picks up?\n\nWorth a quick look?\n\nAlex",
+         "claims": claim},
+    ]}
 
 
 def _fake_judge(user: str) -> dict:

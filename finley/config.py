@@ -27,6 +27,7 @@ class Settings:
     judge_model: str = "claude-haiku-5-5"
     writer_model: str = "claude-opus-5-5"
     writer_effort: str = "high"
+    writer_variants: int = 2        # drafts per Opus call; the judge keeps the best
     # Writing gates
     judge_min_score: float = 4.0
     max_rewrites: int = 2
@@ -58,6 +59,7 @@ class Settings:
             judge_model=env.get("FINLEY_JUDGE_MODEL", cls.judge_model),
             writer_model=env.get("FINLEY_WRITER_MODEL", cls.writer_model),
             writer_effort=env.get("FINLEY_WRITER_EFFORT", cls.writer_effort),
+            writer_variants=int(env.get("FINLEY_WRITER_VARIANTS", cls.writer_variants)),
             judge_min_score=float(env.get("FINLEY_JUDGE_MIN_SCORE", cls.judge_min_score)),
             max_rewrites=int(env.get("FINLEY_MAX_REWRITES", cls.max_rewrites)),
             sequence_length=int(env.get("FINLEY_SEQUENCE_LENGTH", cls.sequence_length)),
