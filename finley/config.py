@@ -32,6 +32,7 @@ class Settings:
     # Lead sourcing: Haiku plans the searches, runs them with web search, and picks contacts.
     sourcing_model: str = "claude-haiku-5-5"
     sourcing_searches_per_query: int = 2
+    writer_variants: int = 2        # drafts per Opus call; the judge keeps the best
     # Writing gates
     judge_min_score: float = 4.0
     max_rewrites: int = 2
@@ -68,6 +69,7 @@ class Settings:
             writer_effort=env.get("FINLEY_WRITER_EFFORT", cls.writer_effort),
             sourcing_model=env.get("FINLEY_SOURCING_MODEL", cls.sourcing_model),
             sourcing_searches_per_query=int(env.get("FINLEY_SEARCHES_PER_QUERY", cls.sourcing_searches_per_query)),
+            writer_variants=int(env.get("FINLEY_WRITER_VARIANTS", cls.writer_variants)),
             judge_min_score=float(env.get("FINLEY_JUDGE_MIN_SCORE", cls.judge_min_score)),
             max_rewrites=int(env.get("FINLEY_MAX_REWRITES", cls.max_rewrites)),
             sequence_length=int(env.get("FINLEY_SEQUENCE_LENGTH", cls.sequence_length)),

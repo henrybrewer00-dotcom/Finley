@@ -45,6 +45,16 @@ when to use it, what research it needs and the principle it rests on. Run `finle
 
 A format only unlocks when the data supports it: Trigger needs a real trigger, Before-After-Bridge
 needs a case study you supplied, Mutual connection needs a `mutual_connection` column on the lead.
+Research tags every fact with a kind (trigger, hiring, new_role, tool, published, service, location,
+size, review, other), so Switch story only appears when research found a tool they use, Their own
+words only when it found something they published, and New in seat only when the person is new.
+
+## Best of two
+
+Each Opus call writes two genuinely different versions of the email (different first line, lead
+fact and subject). Both go through the checks, the judge scores the ones that pass, and the best one
+is kept. Extra cost is a few hundred output tokens and one more Haiku call per email. Set
+`FINLEY_WRITER_VARIANTS=1` to turn it off or 3 for more choice.
 
 ## How a format gets chosen
 

@@ -18,8 +18,10 @@ from pathlib import Path
 
 STEPS = ("first", "follow_up", "final")
 # What a format can require. "fact": research found something specific; "trigger": a timely
-# event; "proof": the campaign has a case study; "mutual": the lead has a real mutual connection.
-NEEDS = ("fact", "trigger", "proof", "mutual")
+# event; "proof": the campaign has a case study; "mutual": the lead has a real mutual connection;
+# "tool", "published", "new_role": research found a fact of that kind (see research.FACT_KINDS).
+NEEDS = ("fact", "trigger", "proof", "mutual", "tool", "published", "new_role")
+KIND_NEEDS = ("tool", "published", "new_role")
 
 
 @dataclass(frozen=True)
@@ -74,7 +76,7 @@ _ALL = [
         key="new_in_seat", name="New in seat",
         parts=("Their new role (no congratulations)", "The decision people in that seat usually face early",
                "How we make that decision easier", "Soft ask"),
-        words=(40, 80), cta="Interest check", needs=("trigger",),
+        words=(40, 80), cta="Interest check", needs=("trigger", "new_role"),
         use_when="The trigger is that this person recently started or was promoted into the role.",
         principle="New leaders review tools and vendors in their first 90 days, so timing does the selling.",
         example="Hi Raj,\n\nYou stepped into the RevOps lead role last month. Most people in that seat get asked for a clean pipeline report within the first quarter.\n\nWe dedupe and tag the CRM so that report is trustworthy on day one.\n\nUseful to see how other teams did it?\n\nSam",
@@ -171,7 +173,7 @@ _ALL = [
         key="content_hook", name="Their own words",
         parts=("Something they published or said (post, talk, page) from research", "The tension it points to",
                "How we help with that tension", "Ask"),
-        words=(40, 85), cta="Interest check", needs=("fact",),
+        words=(40, 85), cta="Interest check", needs=("fact", "published"),
         use_when="Research found something the person or company published: a post, a talk, a stated value.",
         principle="Quoting their priorities back to them shows real attention, not a template.",
         example="Hi Ben,\n\nYour careers page says every customer call gets answered by a human. That gets hard to keep once you're past three crews.\n\nWe're the humans who answer when your team can't, and we book the job.\n\nWorth a look before summer?\n\nSam",
@@ -180,7 +182,7 @@ _ALL = [
         key="switch", name="Switch story",
         parts=("The tool, vendor or approach research shows they use today", "Where that usually falls short for teams like theirs",
                "What we do differently, in one line", "Ask"),
-        words=(40, 85), cta="Interest check", needs=("fact",),
+        words=(40, 85), cta="Interest check", needs=("fact", "tool"),
         use_when="Research names a tool, vendor or method they use today that our offer replaces or improves.",
         principle="Naming the current setup makes the comparison concrete without trashing anyone.",
         example="Hi Kim,\n\nLooks like after-hours calls at Apex go to an answering service that takes messages.\n\nThe catch is a message isn't a booked job; most callers try the next company before you call back.\n\nWe book the job on the first call.\n\nWorth comparing?\n\nSam",
@@ -283,6 +285,15 @@ def signals(research: dict | None, has_proof: bool, lead_extra: dict | None = No
         have.add("trigger")
     if has_proof:
         have.add("proof")
+    facts = research.get("facts") or []
+    kinds = {f.get("kind") for f in facts if isinstance(f, dict) and f.get("kind")}
+    if kinds:
+        have |= kinds & set(KIND_NEEDS)
+        if "new_role" in kinds:
+            have.add("trigger")
+    elif facts:
+        # Research saved before facts had kinds: let the picker judge these formats as before.
+        have |= {"tool", "published"} | ({"new_role"} if research.get("trigger") else set())
     extra = {k.lower(): v for k, v in (lead_extra or {}).items()}
     if any(extra.get(k) for k in ("mutual", "mutual_connection", "referrer", "referred_by")):
         have.add("mutual")

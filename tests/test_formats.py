@@ -48,3 +48,14 @@ def test_load_extra(tmp_path):
         assert FORMATS["two_liner"].needs == ("proof",)
     finally:
         FORMATS.pop("two_liner")
+
+
+def test_fact_kinds_unlock_formats_precisely():
+    keys = lambda r: {f.key for f in available(r, has_proof=False)}
+    service_only = keys({"facts": [{"id": "f1", "kind": "service"}]})
+    assert "switch" not in service_only and "content_hook" not in service_only and "observation" in service_only
+    tooled = keys({"facts": [{"id": "f1", "kind": "tool"}, {"id": "f2", "kind": "published"}]})
+    assert {"switch", "content_hook"} <= tooled and "new_in_seat" not in tooled
+    assert {"new_in_seat", "trigger"} <= keys({"facts": [{"id": "f1", "kind": "new_role"}]})
+    # Research saved before facts had kinds keeps the old behavior.
+    assert {"switch", "content_hook"} <= keys({"facts": [{"id": "f1"}]})

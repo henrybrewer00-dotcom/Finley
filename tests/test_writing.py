@@ -106,3 +106,23 @@ def test_company_name_does_not_trip_ai_tells():
                      "body": "Hi Sam,\n\nUnlock Locksmiths runs a 24/7 line. Who answers it at 2am?\n\nAlex"},
                     QQ, {"first_name": "Sam", "company": "Unlock Locksmiths"}, {})
     assert r.passed, r.failures
+
+
+def test_best_variant_wins(db, settings, campaign_id):
+    campaign, lead = _setup(db, campaign_id)
+    good = FakeLLM().responders["write"]('"first_name": "Dana"')["emails"][0]
+    bad = {"subject": "Re: hi", "body": "Hi Dana, click https://x.co", "claims": []}
+    scores = iter([3, 5])
+
+    def judge(user):
+        s = next(scores, 5)
+        return {"relevance": s, "specificity": s, "clarity": s, "tone": s, "issues": [],
+                "verdict": "send" if s >= 4 else "rewrite"}
+
+    settings.writer_variants = 3
+    second = dict(good, subject="2am calls")
+    llm = FakeLLM({"write": lambda u: {"emails": [bad, good, second]}, "judge": judge})
+    row = db.one("SELECT * FROM emails WHERE id = ?", write_email(db, llm, settings, campaign, lead))
+    assert row["subject"] == "2am calls" and row["status"] == "draft"
+    assert sum(t == "judge" for t, _ in llm.calls) == 2  # the gate-failing draft is never judged
+    assert "Write 3 versions" in next(u for t, u in llm.calls if t == "write")

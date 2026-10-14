@@ -20,9 +20,17 @@ PAGES = ["", "/about", "/about-us"]
 MAX_CHARS_PER_PAGE = 4000
 USER_AGENT = "Mozilla/5.0 (compatible; FinleyBot/0.1; +https://github.com/finley-ai)"
 
+FACT_KINDS = ("trigger", "hiring", "new_role", "tool", "published", "service", "location", "size", "review",
+              "other")
+
 SYSTEM = """You research B2B sales leads. You get a lead's details and text scraped from their website.
-Extract up to 5 short, specific, verifiable facts that a salesperson could reference in a cold email:
-recent news, services offered, hiring, locations, awards, review themes, a stated specialty.
+Extract up to 5 short, specific, verifiable facts that a salesperson could reference in a cold email.
+Prefer facts a reader would be surprised a stranger knew: recent news, hiring, a new location or
+launch, someone new in a role, a tool or vendor they use, something they published or a value they
+state in their own words, then services, locations, size, awards and review themes.
+Give each fact a `kind`: trigger (a recent event), hiring, new_role (this person recently started or
+was promoted), tool (a named tool, vendor or method they use today), published (a post, talk, quote or
+stated value of theirs), service, location, size, review, or other.
 Rules:
 - Only state what the provided text or lead details actually say. Never guess or embellish.
 - Each fact cites its source: "website:<page>" or "lead_data".
@@ -34,8 +42,9 @@ SCHEMA = {
     "properties": {
         "facts": {"type": "array", "items": {
             "type": "object",
-            "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "source": {"type": "string"}},
-            "required": ["id", "text", "source"], "additionalProperties": False}},
+            "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "source": {"type": "string"},
+                           "kind": {"type": "string", "enum": list(FACT_KINDS)}},
+            "required": ["id", "text", "source", "kind"], "additionalProperties": False}},
         "trigger": {"type": "string"},
         "summary": {"type": "string"},
     },
