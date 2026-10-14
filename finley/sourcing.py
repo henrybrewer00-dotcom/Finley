@@ -228,15 +228,25 @@ def _offline_mx(domain: str) -> bool:
 
 # --- the pipeline -----------------------------------------------------------------------
 
-class _LockedEvents:
-    """Lets worker threads log LLM costs to the shared SQLite connection one at a time."""
+class _BufferedEvents:
+    """Collects LLM cost events from worker threads; the main thread writes them to SQLite.
 
-    def __init__(self, db: DB):
-        self._db, self._lock = db, threading.Lock()
+    One SQLite connection can't be used from several threads at once, so workers never touch it.
+    """
+
+    def __init__(self):
+        self._lock, self._pending = threading.Lock(), []
 
     def log_event(self, kind: str, **kw: Any) -> int:
         with self._lock:
-            return self._db.log_event(kind, **kw)
+            self._pending.append((kind, kw))
+        return 0
+
+    def flush(self, db: DB) -> None:
+        with self._lock:
+            pending, self._pending = self._pending, []
+        for kind, kw in pending:
+            db.log_event(kind, **kw)
 
 
 def plan_search(db: DB, llm: LLMClient, settings: Settings, campaign, description: str) -> dict:
@@ -289,7 +299,7 @@ def _domains_in(text: str) -> set[str]:
     return {h for h in hosts if "@" not in h}
 
 
-def find_contact(llm: LLMClient, settings: Settings, events: _LockedEvents, campaign, company: dict,
+def find_contact(llm: LLMClient, settings: Settings, events: _BufferedEvents, campaign, company: dict,
                  target_titles: list[str], fetch: Callable[[str], dict[str, str]],
                  email_finder: Callable[[str], list[dict]] | None) -> dict | None:
     """Return a lead row for one company, or None when no usable email turns up."""
@@ -385,7 +395,7 @@ def find_leads(db: DB, llm: LLMClient, settings: Settings, campaign_id: int, *,
     companies = discover_companies(db, llm, settings, campaign, description, plan, limit, skip, deadline)
     counts["companies_found"] = len(companies)
 
-    events = _LockedEvents(db)
+    events = _BufferedEvents()
     finder = email_finder if email_finder is not None else hunter_finder(settings)
     added: list[dict] = []
 
@@ -403,7 +413,9 @@ def find_leads(db: DB, llm: LLMClient, settings: Settings, campaign_id: int, *,
             for company, fut in [(c, pool.submit(work, c)) for c in chunk]:
                 try:
                     row = fut.result()
+                    events.flush(db)
                 except Exception as e:  # one bad site never stops the run
+                    events.flush(db)
                     counts["errors"] += 1
                     log.warning("sourcing %s failed: %r", company["domain"], e)
                     db.log_event("error", campaign_id=campaign_id, data={"sourcing": company["domain"], "error": repr(e)})
@@ -417,6 +429,7 @@ def find_leads(db: DB, llm: LLMClient, settings: Settings, campaign_id: int, *,
                 if lead:
                     added.append(lead)
 
+    events.flush(db)  # futures abandoned after the limit may have logged since
     cost = db.one("SELECT COALESCE(SUM(cost_usd), 0) AS c FROM events WHERE id > ? AND campaign_id = ? "
                   "AND kind = 'llm_call'", first_event, campaign_id)["c"]
     summary = {"counts": counts, "plan": plan, "cost_usd": round(cost, 4),
