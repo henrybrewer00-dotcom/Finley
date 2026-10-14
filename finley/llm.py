@@ -112,7 +112,8 @@ def _fake_research(user: str) -> dict:
 
 
 def _fake_pick(user: str) -> dict:
-    return {"format_key": "quick_question", "angle": "after-hours calls", "why": "Little research found."}
+    return {"format_keys": ["quick_question", "observation"], "angle": "after-hours calls",
+            "why": "Little research found."}
 
 
 def _fake_write(user: str) -> dict:
@@ -129,12 +130,23 @@ def _fake_judge(user: str) -> dict:
             "issues": [], "verdict": "send"}
 
 
+def _fake_mine(user: str) -> dict:
+    return {"formats": [{
+        "key": "two_line_case", "name": "Two-line case study",
+        "parts": ["A peer's result in one line", "Ask if they want the same"],
+        "words": [20, 45], "cta": "Interest check", "use_when": "A strong, short case study.",
+        "needs": ["proof"], "step": "first", "principle": "Proof in one breath is easy to act on.",
+        "example": "Hi Jo,\n\nA shop like yours booked 40 more jobs last month from calls they used to miss.\n\nWant the same for yours?\n\nSam",
+    }]}
+
+
 DEFAULT_FAKES: dict[str, Callable[[str], dict]] = {
     "score": _fake_score,
     "research": _fake_research,
     "pick_format": _fake_pick,
     "write": _fake_write,
     "judge": _fake_judge,
+    "mine_formats": _fake_mine,
 }
 
 
