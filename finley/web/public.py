@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from ..formats import FORMATS
-from .deps import render
+from .deps import render, services
 
 router = APIRouter()
 
@@ -16,5 +16,8 @@ def landing(request: Request):
 
 
 @router.get("/healthz")
-def health():
-    return {"ok": True}
+def health(request: Request):
+    """Liveness plus whether accounts persist and saved keys can be encrypted (no secrets shown)."""
+    svc = services(request)
+    return {"ok": True, "database": "postgres" if svc.db.is_postgres else "sqlite",
+            "persistent": not svc.db.is_ephemeral, "secrets": svc.vault.enabled}
