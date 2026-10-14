@@ -29,7 +29,7 @@ build-backend = "setuptools.build_meta"
 include = ["finley*"]
 
 [tool.setuptools.package-data]
-finley = ["templates/*.html"]
+finley = ["templates/*.html", "templates/*/*.html", "static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

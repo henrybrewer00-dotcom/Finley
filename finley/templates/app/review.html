@@ -65,7 +65,7 @@
             <div class="facts">
               {% for f in r.facts or [] %}<div class="fact"><span class="id">{{ f.id }}</span><span>{{ f.text }}</span></div>{% else %}<span class="faint small">No research facts.</span>{% endfor %}
             </div>
-            {% if e.website %}<a class="small" href="{{ e.website }}" target="_blank" rel="noopener">{{ ui.icon("globe") }}</a>{% endif %}
+            {% if e.website %}<a class="small row" style="--gap:6px" href="{{ e.website }}" target="_blank" rel="noopener">{{ ui.icon("globe") }}{{ e.website|replace("https://", "")|replace("http://", "") }}</a>{% endif %}
           </div>
           <div class="card card-pad stack" style="--gap:8px">
             <h3>Quality checks</h3>

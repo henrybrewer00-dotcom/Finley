@@ -79,10 +79,12 @@ def test_secrets_are_encrypted_and_never_shown(db, vault, settings):
 
 def test_pages_need_login(db, settings, llm, vault):
     c = TestClient(create_app(settings, db, llm, vault=vault))
-    for path in ("/", "/settings", "/campaigns/1", "/api/me"):
+    for path in ("/app", "/app/settings", "/app/campaigns/1", "/app/find", "/app/review"):
         r = c.get(path, follow_redirects=False)
         assert r.status_code == 303 and r.headers["location"].startswith("/login"), path
-    assert c.post("/campaigns", data={"name": "x", "offer": "y", "icp": "z"},
+    assert c.get("/api/me").status_code == 401
+    assert c.get("/").status_code == 200  # the landing page is public
+    assert c.post("/app/campaigns", data={"name": "x", "offer": "y", "icp": "z"},
                   follow_redirects=False).headers["location"].startswith("/login")
     assert "Log in" in c.get("/login").text and "Create your account" in c.get("/signup").text
 
@@ -90,69 +92,69 @@ def test_pages_need_login(db, settings, llm, vault):
 def test_login_logout_and_bad_password(db, settings, llm, vault):
     c = client_for(db, settings, llm, vault, "alex@example.com")
     c.post("/logout")
-    assert c.get("/", follow_redirects=False).status_code == 303
+    assert c.get("/app", follow_redirects=False).status_code == 303
     r = c.post("/login", data={"email": "alex@example.com", "password": "nope nope"})
-    assert "match" in r.text and r.status_code == 200 and 'class="error"' in r.text
-    r = c.post("/login", data={"email": "alex@example.com", "password": "correct horse", "next": "/settings"},
+    assert "match" in r.text and r.status_code == 200 and 'alert-error' in r.text
+    r = c.post("/login", data={"email": "alex@example.com", "password": "correct horse", "next": "/app/settings"},
                follow_redirects=False)
-    assert r.headers["location"] == "/settings"
+    assert r.headers["location"] == "/app/settings"
     r = c.post("/login", data={"email": "alex@example.com", "password": "correct horse",
                                "next": "//evil.example"}, follow_redirects=False)
-    assert r.headers["location"] == "/"
+    assert r.headers["location"] == "/app"
 
 
 def test_accounts_are_isolated(db, settings, llm, vault, csv_text):
     alex = client_for(db, settings, llm, vault, "alex@example.com")
     sam = client_for(db, settings, llm, vault, "sam@example.com")
-    r = alex.post("/campaigns", data={"name": "Alex's plumbers", "offer": "o", "icp": "i"}, follow_redirects=False)
-    cid = int(r.headers["location"].split("/")[-1])
-    alex.post(f"/campaigns/{cid}/import", files={"file": ("l.csv", csv_text, "text/csv")})
-    alex.post(f"/campaigns/{cid}/run", data={"limit": 10, "min_score": 50})
+    r = alex.post("/app/campaigns", data={"name": "Alex's plumbers", "offer": "o", "icp": "i"}, follow_redirects=False)
+    cid = int(r.headers["location"].split("?")[0].split("/")[-1])
+    alex.post(f"/app/campaigns/{cid}/import", files={"file": ("l.csv", csv_text, "text/csv")})
+    alex.post(f"/app/campaigns/{cid}/run", data={"limit": 10, "min_score": 50})
     eid = db.one("SELECT id FROM emails WHERE campaign_id = ?", cid)["id"]
 
-    assert "Alex's plumbers" not in sam.get("/").text
-    assert sam.get(f"/campaigns/{cid}").status_code == 404
-    assert sam.get(f"/campaigns/{cid}/metrics.json").status_code == 404
-    assert sam.post(f"/campaigns/{cid}/import", files={"file": ("l.csv", csv_text, "text/csv")}).status_code == 404
-    assert sam.post(f"/emails/{eid}/status", data={"status": "approved"}).status_code == 404
-    assert sam.post(f"/emails/{eid}/edit", data={"subject": "x", "body": "y"}).status_code == 404
+    assert "Alex's plumbers" not in sam.get("/app").text and "Alex's plumbers" not in sam.get("/app/campaigns").text
+    assert sam.get(f"/app/campaigns/{cid}").status_code == 404
+    assert sam.get(f"/app/campaigns/{cid}/metrics.json").status_code == 404
+    assert sam.post(f"/app/campaigns/{cid}/import", files={"file": ("l.csv", csv_text, "text/csv")}).status_code == 404
+    assert sam.post(f"/app/emails/{eid}/status", data={"status": "approved"}).status_code == 404
+    assert sam.post(f"/app/emails/{eid}/edit", data={"subject": "x", "body": "y"}).status_code == 404
     assert db.one("SELECT status FROM emails WHERE id = ?", eid)["status"] != "approved"
 
 
 def test_settings_page_saves_and_applies_to_runs(db, settings, llm, vault, csv_text):
     c = client_for(db, settings, llm, vault, "alex@example.com")
-    r = c.post("/settings", data={"section": "defaults", "exclude_domains": "riveraplumbing.com",
+    r = c.post("/app/settings/defaults", data={"exclude_domains": "riveraplumbing.com",
                                   "min_score": "50"})
     assert "Saved." in r.text and "riveraplumbing.com" in r.text
-    r = c.post("/settings", data={"section": "ai", "anthropic_key": "sk-ant-api03-abcdefghijklmnop"})
+    r = c.post("/app/settings/ai", data={"anthropic_key": "sk-ant-api03-abcdefghijklmnop"})
     assert "sk-ant-…mnop" in r.text and "abcdefghijklmnop" not in r.text
-    r = c.post("/settings", data={"section": "defaults", "min_score": "500"})
+    r = c.post("/app/settings/defaults", data={"min_score": "500"})
     assert "between 0 and 100" in r.text
 
-    r = c.post("/campaigns", data={"name": "Plumbers", "offer": "o", "icp": "i"}, follow_redirects=False)
-    cid = int(r.headers["location"].split("/")[-1])
-    c.post(f"/campaigns/{cid}/import", files={"file": ("l.csv", csv_text, "text/csv")})
-    c.post(f"/campaigns/{cid}/run", data={"limit": 10})
+    r = c.post("/app/campaigns", data={"name": "Plumbers", "offer": "o", "icp": "i"}, follow_redirects=False)
+    cid = int(r.headers["location"].split("?")[0].split("/")[-1])
+    c.post(f"/app/campaigns/{cid}/import", files={"file": ("l.csv", csv_text, "text/csv")})
+    c.post(f"/app/campaigns/{cid}/run", data={"limit": 10})
     rivera = db.one("SELECT status FROM leads WHERE email = 'sam@riveraplumbing.com'")
     assert rivera["status"] == "filtered"  # the saved exclusion applied without retyping it
-    assert "Using your saved Anthropic key" in c.get(f"/campaigns/{cid}").text
+    assert "Using your saved Anthropic key" in c.get(f"/app/campaigns/{cid}").text
 
 
 def test_change_password_and_delete_account(db, settings, llm, vault, csv_text):
     c = client_for(db, settings, llm, vault, "alex@example.com")
-    r = c.post("/settings/password", data={"current": "wrong", "new": "new password"})
+    r = c.post("/app/settings/password", data={"current": "wrong", "new": "new password"})
     assert "current password is wrong" in r.text
-    c.post("/settings/password", data={"current": "correct horse", "new": "new password"})
+    c.post("/app/settings/password", data={"current": "correct horse", "new": "new password"})
     uid = db.one("SELECT id FROM users")["id"]
     assert accounts.authenticate(db, "alex@example.com", "new password") == uid
 
-    c.post("/campaigns", data={"name": "P", "offer": "o", "icp": "i"})
+    c.post("/app/campaigns", data={"name": "P", "offer": "o", "icp": "i"})
     cid = db.one("SELECT id FROM campaigns")["id"]
-    c.post(f"/campaigns/{cid}/import", files={"file": ("l.csv", csv_text, "text/csv")})
-    c.post(f"/campaigns/{cid}/run", data={"limit": 10})
-    r = c.post("/settings/delete-account", data={"confirm_email": "someone@else.com"})
+    c.post(f"/app/campaigns/{cid}/import", files={"file": ("l.csv", csv_text, "text/csv")})
+    c.post(f"/app/campaigns/{cid}/run", data={"limit": 10})
+    r = c.post("/app/settings/delete-account", data={"confirm_email": "someone@else.com"})
     assert "Type your email" in r.text
-    c.post("/settings/delete-account", data={"confirm_email": "alex@example.com"})
+    c.post("/app/settings/delete-account", data={"confirm_email": "alex@example.com"})
     for table in ("users", "campaigns", "leads", "emails", "sessions", "user_settings"):
         assert db.one(f"SELECT COUNT(*) AS n FROM {table}")["n"] == 0, table
 

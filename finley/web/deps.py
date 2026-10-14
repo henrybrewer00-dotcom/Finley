@@ -1,26 +1,28 @@
-"""Shared plumbing for every web router: app services, the current user, and page rendering.
+"""Shared plumbing for every web router: app services, the signed-in user, and page rendering.
 
-Routers never build their own DB or LLM. They read them from `request.app.state` through
-`services(request)`, so tests can inject fakes in one place (`create_app(db=..., llm=...)`).
-
-The accounts work replaces `current_user` with real sessions. Until then Finley runs as a single
-local user, which is what a self-hosted install wants anyway.
+Routers never build their own DB or LLM. They read them from `request.app.state.services`, so
+tests inject fakes in one place (`create_app(db=..., llm=...)`).
 """
 
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote, urlencode
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
+from .. import accounts
+from ..accounts import SESSION_COOKIE
 from ..config import Settings
 from ..db import DB
 from ..scoring import score_band
+from ..vault import Vault
 
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -29,24 +31,29 @@ templates.env.filters["money"] = lambda v: f"${(v or 0):,.2f}"
 templates.env.filters["pct"] = lambda v: "–" if v is None else f"{v:g}%"
 templates.env.globals["band"] = score_band
 
-# Sidebar navigation. Each router sets `active` to one of these keys.
+# Sidebar navigation. Each page passes `active` with one of these keys.
 NAV = [
     {"key": "dashboard", "label": "Dashboard", "href": "/app", "icon": "home"},
     {"key": "find", "label": "Find leads", "href": "/app/find", "icon": "search"},
     {"key": "campaigns", "label": "Campaigns", "href": "/app/campaigns", "icon": "send"},
     {"key": "review", "label": "Review", "href": "/app/review", "icon": "inbox"},
 ]
-NAV_BOTTOM = [
-    {"key": "settings", "label": "Settings", "href": "/app/settings", "icon": "settings"},
-]
+NAV_BOTTOM = [{"key": "settings", "label": "Settings", "href": "/app/settings", "icon": "settings"}]
 
 
 @dataclass
 class Services:
     settings: Settings
     db: DB
-    llm: Any = None      # injected client (tests); None means build one per request from the user's key
-    fetch: Any = None    # injected website fetcher (tests); None means the real one
+    vault: Vault
+    llm: Any = None              # injected client (tests); None = build one per request from the user's key
+    fetch: Any = None            # injected website fetcher for research (tests)
+    sourcing_fetch: Any = None   # injected website fetcher for lead finding (tests)
+    signups_open: bool = True
+
+
+class LoginRequired(Exception):
+    """Raised by `require_user`; the app turns it into a redirect to /login."""
 
 
 def services(request: Request) -> Services:
@@ -54,53 +61,41 @@ def services(request: Request) -> Services:
 
 
 def current_user(request: Request) -> dict | None:
-    """The signed-in user as a dict with at least `id`, `name`, `email`, or None if signed out.
-
-    Accounts plug in here: set `request.state.user` in middleware (or replace this function).
-    Without accounts, every visitor is the single local user.
-    """
-    user = getattr(request.state, "user", None)
-    if user is not None:
-        return user
-    if getattr(request.app.state, "accounts_enabled", False):
-        return None
-    return {"id": None, "name": "You", "email": ""}
+    """The signed-in user ({id, email, name, created_at}) or None. Cached per request."""
+    if not hasattr(request.state, "user"):
+        row = accounts.session_user(services(request).db, request.cookies.get(SESSION_COOKIE))
+        request.state.user = dict(row) if row else None
+    return request.state.user
 
 
-def render(request: Request, template: str, active: str = "", status_code: int = 200,
-           **ctx: Any) -> HTMLResponse:
-    """Render a page with the shared context every layout needs."""
-    base = {
-        "user": current_user(request),
-        "active": active,
-        "nav": NAV,
-        "nav_bottom": NAV_BOTTOM,
-        "msg": request.query_params.get("msg", ""),
-        "err": request.query_params.get("err", ""),
-    }
-    return templates.TemplateResponse(request, template, {**base, **ctx}, status_code=status_code)
+def require_user(request: Request) -> dict:
+    user = current_user(request)
+    if user is None:
+        raise LoginRequired()
+    return user
 
 
-def redirect(url: str, msg: str = "", err: str = "") -> RedirectResponse:
-    from urllib.parse import urlencode
+def user_settings(request: Request) -> Settings:
+    """Server settings with the user's sender profile and inbox laid over them."""
+    svc = services(request)
+    return accounts.runtime_settings(svc.settings, svc.db, svc.vault, require_user(request)["id"])
 
-    q = urlencode({k: v for k, v in (("msg", msg), ("err", err)) if v})
-    return RedirectResponse(url + (("&" if "?" in url else "?") + q if q else ""), status_code=303)
+
+def profile(request: Request) -> dict:
+    """The user's saved settings for display (secrets only as has_* flags)."""
+    svc = services(request)
+    return accounts.get_settings(svc.db, svc.vault, require_user(request)["id"])
 
 
 def api_key_for(request: Request) -> str:
-    """The Anthropic key to use for this request: the user's own (from settings), else the server's.
-
-    Accounts store the user's key and expose it as `user["anthropic_api_key"]` (decrypted).
-    """
-    import os
-
-    user = current_user(request) or {}
-    return (user.get("anthropic_api_key") or os.environ.get("ANTHROPIC_API_KEY", "")).strip()
+    """The user's saved Anthropic key, else the server's (self-hosted installs)."""
+    svc = services(request)
+    key = accounts.anthropic_key(svc.db, svc.vault, require_user(request)["id"])
+    return (key or os.environ.get("ANTHROPIC_API_KEY", "")).strip()
 
 
-def llm_for(request: Request, demo: bool = False):
-    """An LLM client for this request, or None when there is no key and demo mode is off."""
+def llm_for(request: Request, demo: bool = False, api_key: str = ""):
+    """An LLM client for this request, or None when there's no key and demo mode is off."""
     from ..llm import FakeLLM, make_llm
 
     svc = services(request)
@@ -108,26 +103,58 @@ def llm_for(request: Request, demo: bool = False):
         return svc.llm
     if demo:
         return FakeLLM()
-    key = api_key_for(request)
+    key = api_key.strip() or api_key_for(request)
     return make_llm(api_key=key) if key else None
 
 
-def user_id(request: Request):
-    return (current_user(request) or {}).get("id")
-
-
 def owned_campaign(request: Request, cid: int):
-    """The campaign if it belongs to the current user (or there are no accounts), else 404."""
-    from fastapi import HTTPException
-
-    c = services(request).db.one("SELECT * FROM campaigns WHERE id = ?", cid)
-    uid = user_id(request)
-    if c is None or (uid is not None and c["user_id"] != uid):
+    c = services(request).db.one("SELECT * FROM campaigns WHERE id = ? AND user_id = ?",
+                                 cid, require_user(request)["id"])
+    if c is None:
         raise HTTPException(404)
     return c
 
 
-def campaign_scope(request: Request) -> tuple[str, tuple]:
-    """SQL fragment limiting `campaigns c` to the current user's rows."""
-    uid = user_id(request)
-    return ("c.user_id = ?", (uid,)) if uid is not None else ("1 = 1", ())
+def owned_email(request: Request, eid: int):
+    e = services(request).db.one("SELECT e.* FROM emails e JOIN campaigns c ON c.id = e.campaign_id "
+                                 "WHERE e.id = ? AND c.user_id = ?", eid, require_user(request)["id"])
+    if e is None:
+        raise HTTPException(404)
+    return e
+
+
+def review_count(request: Request) -> int:
+    user = current_user(request)
+    if not user:
+        return 0
+    row = services(request).db.one(
+        "SELECT COUNT(*) AS n FROM emails e JOIN campaigns c ON c.id = e.campaign_id "
+        "WHERE c.user_id = ? AND e.status IN ('draft', 'needs_review')", user["id"])
+    return int(row["n"] or 0)
+
+
+def render(request: Request, template: str, active: str = "", status_code: int = 200,
+           **ctx: Any) -> HTMLResponse:
+    """Render a page with the shared context every layout needs."""
+    svc = services(request)
+    base = {
+        "user": current_user(request),
+        "active": active,
+        "nav": NAV,
+        "nav_bottom": NAV_BOTTOM,
+        "msg": request.query_params.get("msg", ""),
+        "err": request.query_params.get("err", ""),
+        "ephemeral": svc.db.is_ephemeral,
+        "review_count": review_count(request) if template.startswith("app/") else 0,
+    }
+    return templates.TemplateResponse(request, template, {**base, **ctx}, status_code=status_code)
+
+
+def redirect(url: str, msg: str = "", err: str = "", anchor: str = "") -> RedirectResponse:
+    q = urlencode({k: v for k, v in (("msg", msg), ("err", err)) if v}, quote_via=quote)
+    url = url + (("&" if "?" in url else "?") + q if q else "")
+    return RedirectResponse(url + (f"#{anchor}" if anchor else ""), status_code=303)
+
+
+def safe_next(url: str, default: str = "/app") -> str:
+    return url if url.startswith("/") and not url.startswith("//") else default

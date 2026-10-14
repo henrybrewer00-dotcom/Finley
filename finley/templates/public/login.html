@@ -1,0 +1,20 @@
+{% extends "public/base.html" %}
+{% block title %}Log in · Finley{% endblock %}
+{% block body %}
+<main class="auth">
+  <div class="auth-card stack" style="--gap:18px">
+    <a class="brand" href="/" style="justify-content:center">{{ ui.logo() }}Finley</a>
+    <div class="card">
+      <form class="card-body stack" style="--gap:16px" method="post" action="/login">
+        <div class="center"><h1>Welcome back</h1><p class="muted" style="margin-top:4px">Log in to your Finley account.</p></div>
+        {% if error %}<div class="alert alert-error">{{ ui.icon("alert") }}<div>{{ error }}</div></div>{% endif %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <label class="field"><span class="label">Email</span><input class="input" type="email" name="email" value="{{ email }}" autocomplete="email" required autofocus></label>
+        <label class="field"><span class="label">Password</span><input class="input" type="password" name="password" autocomplete="current-password" required></label>
+        <button class="btn btn-primary btn-lg btn-block">Log in</button>
+      </form>
+    </div>
+    {% if signups_open %}<p class="center muted">New to Finley? <a href="/signup">Create an account</a></p>{% endif %}
+  </div>
+</main>
+{% endblock %}

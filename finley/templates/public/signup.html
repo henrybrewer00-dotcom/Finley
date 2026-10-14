@@ -1,0 +1,30 @@
+{% extends "public/base.html" %}
+{% block title %}Create your account · Finley{% endblock %}
+{% block body %}
+<main class="auth">
+  <div class="auth-card stack" style="--gap:18px">
+    <a class="brand" href="/" style="justify-content:center">{{ ui.logo() }}Finley</a>
+    <div class="card">
+      {% if closed %}
+      <div class="card-body stack center" style="--gap:10px">
+        <h1>Sign-ups are closed</h1>
+        <p class="muted">This Finley server is private. Ask its owner for access, or <a href="https://github.com/henrybrewer00-dotcom/Finley">run your own</a>.</p>
+        <a class="btn" href="/login">Log in</a>
+      </div>
+      {% else %}
+      <form class="card-body stack" style="--gap:16px" method="post" action="/signup">
+        <div class="center"><h1>Create your account</h1><p class="muted" style="margin-top:4px">Free and open source. Bring your own Claude API key.</p></div>
+        {% if error %}<div class="alert alert-error">{{ ui.icon("alert") }}<div>{{ error }}</div></div>{% endif %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <label class="field"><span class="label">Your name</span><input class="input" name="name" value="{{ form.name or '' }}" autocomplete="name" autofocus></label>
+        <label class="field"><span class="label">Work email</span><input class="input" type="email" name="email" value="{{ form.email or '' }}" autocomplete="email" required></label>
+        <label class="field"><span class="label">Password</span><input class="input" type="password" name="password" autocomplete="new-password" minlength="8" required><span class="hint">At least 8 characters.</span></label>
+        <button class="btn btn-primary btn-lg btn-block">Create account</button>
+        {% if ephemeral %}<p class="hint center">This is a demo server: accounts and data reset from time to time.</p>{% endif %}
+      </form>
+      {% endif %}
+    </div>
+    <p class="center muted">Already have an account? <a href="/login">Log in</a></p>
+  </div>
+</main>
+{% endblock %}

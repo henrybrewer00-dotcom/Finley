@@ -1,0 +1,38 @@
+{% import "_ui.html" as ui %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Welcome · Finley</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/finley.css"><link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+<main class="auth">
+  <div style="width:100%;max-width:560px" class="stack">
+    <a class="brand" href="/" style="justify-content:center">{{ ui.logo() }}Finley</a>
+    <div class="card">
+      <div class="card-body stack" style="--gap:18px;padding:28px">
+        <div><h1>Welcome{% if user.name %}, {{ user.name.split()[0] }}{% endif %}</h1><p class="muted" style="margin-top:4px">Two quick things and you're ready to find leads.</p></div>
+        {{ ui.flash(msg, err) }}
+        <form method="post" action="/app/settings/onboarding" class="stack" style="--gap:16px">
+          <div class="grid grid-2" style="gap:14px">
+            <label class="field"><span class="label">Company name</span><input class="input" name="company_name" value="{{ s.company_name }}" required></label>
+            <label class="field"><span class="label">Website</span><input class="input" name="company_website" value="{{ s.company_website }}" placeholder="https://"></label>
+          </div>
+          <label class="field"><span class="label">What do you sell, and who is it for?</span>
+            <textarea class="textarea" name="company_description" required placeholder="We answer after-hours calls for plumbing shops so emergency jobs get booked instead of going to voicemail.">{{ s.company_description }}</textarea></label>
+          {% if can_store_secrets %}
+          <label class="field"><span class="label">Anthropic API key <span class="faint">(you can add it later)</span></span>
+            <input class="input mono" type="password" name="anthropic_key" autocomplete="off" placeholder="{{ s.anthropic_key_hint or 'sk-ant-…' }}">
+            <span class="hint">Create one at console.anthropic.com. Finley runs on your key, so you pay about 1 to 2 cents per lead and nothing to us. It's stored encrypted.</span></label>
+          {% endif %}
+          <button class="btn btn-primary btn-lg">Continue {{ ui.icon("arrow-right") }}</button>
+        </form>
+      </div>
+    </div>
+    <a class="center faint small" href="/app">Skip for now</a>
+  </div>
+</main>
+</body>
+</html>

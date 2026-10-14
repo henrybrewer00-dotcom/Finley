@@ -39,8 +39,10 @@
         <label class="field"><span class="label">Only write if score is at least</span><input class="input" type="number" id="run-min" value="50" min="0" max="100"></label>
       </div>
       <label class="field"><span class="label">Skip these domains <span class="faint">(customers, competitors)</span></span><input class="input" id="run-exclude" placeholder="acme.com, rival.io"></label>
+      {% if prefs.has_anthropic_key %}<p class="hint row" style="--gap:6px">{{ ui.icon("key") }}Using your saved Anthropic key ({{ prefs.anthropic_key_hint }}).</p>{% endif %}
       {% if not has_key %}
-      <div class="alert alert-warn">{{ ui.icon("key") }}<div>Add your Anthropic API key in <a href="/app/settings#ai">Settings</a> to write real emails. Until then you can try a demo run with sample AI output.</div></div>
+      <div class="alert alert-warn">{{ ui.icon("key") }}<div>Add your Anthropic API key in <a href="/app/settings#ai">Settings</a> to write real emails{% if not can_store_secrets %}, or paste it below for this run only{% endif %}. Until then you can try a demo run with sample AI output.</div></div>
+      {% if not can_store_secrets %}<label class="field"><span class="label">Anthropic API key <span class="faint">(used for this run only, never stored)</span></span><input class="input mono" type="password" id="run-key" autocomplete="off" placeholder="sk-ant-…"></label>{% endif %}
       {% endif %}
       <label class="check"><input type="checkbox" id="run-demo" {{ "checked" if not has_key }}> Demo run (sample AI output, no cost)</label>
       <div id="run-progress" class="stack hidden" style="--gap:8px">

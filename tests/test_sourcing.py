@@ -93,6 +93,9 @@ def test_no_mail_server_and_suppressed_are_dropped(db, llm, settings, campaign_i
 
 def test_find_leads_api(db, settings, campaign_id):
     client = TestClient(create_app(settings, db))
+    assert client.post(f"/api/campaigns/{campaign_id}/find-leads", json={"dry_run": True}).status_code == 401
+    client.post("/signup", data={"email": "alex@example.com", "password": "correct horse"})
+    db.execute("UPDATE campaigns SET user_id = (SELECT id FROM users) WHERE id = ?", campaign_id)
     r = client.post(f"/api/campaigns/{campaign_id}/find-leads", json={"dry_run": True, "limit": 5,
                                                                       "description": "Plumbers in Austin"})
     assert r.status_code == 200, r.text
@@ -101,5 +104,5 @@ def test_find_leads_api(db, settings, campaign_id):
     assert body["plan"]["queries"]
 
     assert client.post("/api/campaigns/999/find-leads", json={"dry_run": True}).status_code == 404
-    r = client.post(f"/campaigns/{campaign_id}/find-leads", data={"dry_run": "true"}, follow_redirects=False)
+    r = client.post(f"/app/campaigns/{campaign_id}/find-leads", data={"dry_run": "true"}, follow_redirects=False)
     assert r.status_code == 303 and "Found" in r.headers["location"]

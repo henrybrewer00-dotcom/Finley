@@ -1,0 +1,197 @@
+{% extends "public/base.html" %}
+{% block body %}
+<div class="lp">
+<header class="lp-nav">
+  <div class="lp-wrap">
+    <a class="brand" href="/" style="padding:0">{{ ui.logo() }}Finley</a>
+    <nav class="lp-links"><a href="#how">How it works</a><a href="#emails">Emails</a><a href="#pricing">Pricing</a><a href="#faq">FAQ</a><a href="https://github.com/henrybrewer00-dotcom/Finley">GitHub</a></nav>
+    <div class="actions">
+      {% if user %}<a class="btn btn-primary" href="/app">Open app {{ ui.icon("arrow-right") }}</a>
+      {% else %}<a class="btn btn-ghost" href="/login">Log in</a><a class="btn btn-primary" href="/signup">Get started</a>{% endif %}
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="lp-wrap">
+    <a class="eyebrow" href="https://github.com/henrybrewer00-dotcom/Finley"><b>Open source</b>Runs on your own Claude API key {{ ui.icon("arrow-right") }}</a>
+    <h1>Describe your customer.<br><em>Finley finds them</em> and writes the email.</h1>
+    <p class="lead">AI lead generation that searches the live web for companies that fit, finds the right person and their email, scores every lead, and writes researched cold emails you'd actually send. About 2 cents a lead.</p>
+    <div class="cta">
+      <a class="btn btn-primary btn-lg" href="{{ '/app' if user else '/signup' }}">Start finding leads {{ ui.icon("arrow-right") }}</a>
+      <a class="btn btn-lg" href="https://github.com/henrybrewer00-dotcom/Finley">{{ ui.icon("github") }}Self-host it free</a>
+    </div>
+    <p class="fine">No credit card. No per-seat fees. Your data stays yours.</p>
+
+    <div class="mock" aria-hidden="true">
+      <div class="mock-bar"><i></i><i></i><i></i><span>finley · Find leads</span></div>
+      <div class="mock-body">
+        <div class="mock-left">
+          <div class="mock-prompt">{{ ui.icon("search") }}<span>Owner-operated plumbing companies in Austin with 5 to 50 staff that offer 24/7 emergency service</span></div>
+          <div class="mock-table">
+            <div class="mock-row"><span>Company</span><span>Contact</span><span>Why it fits</span><span>Fit</span></div>
+            <div class="mock-row"><span><b>Rivera Plumbing</b><br><span class="sub">riveraplumbing.com</span></span><span>Sam Rivera<br><span class="sub">Owner</span></span><span class="sub">Family-owned, 24/7 emergency line, hiring a dispatcher</span><span class="score score-A">88</span></div>
+            <div class="mock-row"><span><b>Lone Star Drains</b><br><span class="sub">lonestardrains.com</span></span><span>Dana Ortiz<br><span class="sub">General Manager</span></span><span class="sub">Emergency drain service across Round Rock</span><span class="score score-A">82</span></div>
+            <div class="mock-row"><span><b>Barton Creek Plumbing</b><br><span class="sub">bartoncreekplumbing.com</span></span><span>Lee Chen<br><span class="sub">Founder</span></span><span class="sub">Opened a second location in Cedar Park</span><span class="score score-B">71</span></div>
+            <div class="mock-row"><span><b>Hill Country Pipe Co.</b><br><span class="sub">hcpipe.com</span></span><span>Jo Patel<br><span class="sub">Owner</span></span><span class="sub">Residential repair, 12 staff</span><span class="score score-B">66</span></div>
+          </div>
+        </div>
+        <div class="mock-right">
+          <div class="mock-email">
+            <div class="hd">To Sam Rivera · Format: Trigger event</div>
+            <div class="subj">your dispatcher opening</div>
+            <div class="bd">Hi Sam,
+
+Saw you're <span class="mark">hiring a dispatcher</span> to cover your <span class="mark">24/7 emergency line</span>. While that seat's open, who picks up at 2am?
+
+We answer after-hours calls for plumbing shops and book the job straight into your calendar.
+
+Worth a look while you hire?
+
+Alex</div>
+          </div>
+          <div class="mock-checks">
+            <span class="badge badge-green">{{ ui.icon("check") }}Every claim sourced</span>
+            <span class="badge badge-green">{{ ui.icon("check") }}54 words</span>
+            <span class="badge badge-green">{{ ui.icon("check") }}No spam phrases</span>
+            <span class="badge badge-violet">Judge 4.6/5</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="strip">
+  <div class="lp-wrap">
+    <div class="stat"><b>~2¢</b><span>AI cost per lead, on your key</span></div>
+    <div class="stat"><b>{{ n_formats }}</b><span>proven cold email formats</span></div>
+    <div class="stat"><b>0</b><span>made-up facts allowed in emails</span></div>
+    <div class="stat"><b>100%</b><span>open source, self-hostable</span></div>
+  </div>
+</div>
+
+<section class="section" id="how">
+  <div class="lp-wrap">
+    <div class="section-head"><div class="kicker">How it works</div><h2>From one sentence to a booked meeting</h2><p>Finley does the research a great SDR would do for every single lead, then hands you emails worth sending.</p></div>
+    <div class="steps">
+      <div class="step"><h3>Describe who you want</h3><p>"Dental practices in Phoenix opening a second location." Plain English, as specific as you like.</p></div>
+      <div class="step"><h3>Finley finds them</h3><p>It searches the web, reads each company's own site, and finds the decision maker and an email they published.</p></div>
+      <div class="step"><h3>Every lead gets scored</h3><p>Fit, need, timing and reachability, each with a reason. Only good fits get an email.</p></div>
+      <div class="step"><h3>You review and send</h3><p>Researched emails land in your review queue. Approve, tweak or skip, then send from your own inbox.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="emails">
+  <div class="lp-wrap split">
+    <div>
+      <div class="kicker">Best-in-class emails</div>
+      <h2>Emails that sound like you did your homework, because Finley did</h2>
+      <p class="big">Claude Opus 5.5 writes each email in one of {{ n_formats }} formats studied from cold emails that get replies, picked to fit what the research found. Then every draft has to pass checks before it reaches you.</p>
+      <ul class="ticks">
+        <li>{{ ui.icon("check") }}<span><b>Every claim traced to a source.</b> If the research didn't find it, the email can't say it.</span></li>
+        <li>{{ ui.icon("check") }}<span><b>Short, plain and human.</b> Length, reading level, subject line, links and spam phrases are all checked.</span></li>
+        <li>{{ ui.icon("check") }}<span><b>A second AI judges every draft.</b> Anything under the bar gets rewritten, or flagged for you.</span></li>
+        <li>{{ ui.icon("check") }}<span><b>Written in your voice.</b> Paste a few emails you've sent and Finley matches your tone.</span></li>
+      </ul>
+    </div>
+    <div class="mock" style="margin:0" aria-hidden="true">
+      <div class="mock-bar"><i></i><i></i><i></i><span>finley · Review</span></div>
+      <div style="padding:20px" class="stack">
+        <div class="mock-email">
+          <div class="hd">To Dana Ortiz · Format: Quick question</div>
+          <div class="subj">after-hours drain calls</div>
+          <div class="bd">Hi Dana,
+
+Noticed Lone Star runs <span class="mark">emergency drain service across Round Rock</span>. When a call comes in at midnight, does it reach a person or voicemail?
+
+Happy to share how other shops book those jobs.
+
+Alex</div>
+        </div>
+        <div class="card card-pad stack" style="--gap:8px">
+          <div class="row between"><b>Lead score</b><span class="score score-A">82</span></div>
+          <div class="meter"><span class="muted">Fit</span><div class="progress"><span style="width:100%"></span></div><b>5</b></div>
+          <div class="meter"><span class="muted">Need</span><div class="progress"><span style="width:80%"></span></div><b>4</b></div>
+          <div class="meter"><span class="muted">Timing</span><div class="progress"><span style="width:60%"></span></div><b>3</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="lp-wrap">
+    <div class="section-head"><div class="kicker">Everything in one place</div><h2>Find, score, write, send, measure</h2></div>
+    <div class="features">
+      <div class="feature"><div class="ic">{{ ui.icon("search") }}</div><h3>Lead finding from a sentence</h3><p>No list to buy, no filters to fiddle with. Finley searches the live web, not a stale database.</p></div>
+      <div class="feature"><div class="ic">{{ ui.icon("target") }}</div><h3>Scoring you can read</h3><p>Every score comes with its reasons, so you know why a lead is an A and another a D.</p></div>
+      <div class="feature"><div class="ic">{{ ui.icon("sparkles") }}</div><h3>Researched personalization</h3><p>Real facts from each company's own website, never generic first-line filler.</p></div>
+      <div class="feature"><div class="ic">{{ ui.icon("inbox") }}</div><h3>A review queue built for speed</h3><p>Email, research and quality checks side by side. Approve and move on in one click.</p></div>
+      <div class="feature"><div class="ic">{{ ui.icon("mail") }}</div><h3>Send from your own inbox</h3><p>Gmail, Outlook or any SMTP. Daily caps, unsubscribe headers and a do-not-contact list built in.</p></div>
+      <div class="feature"><div class="ic">{{ ui.icon("chart") }}</div><h3>Measure everything</h3><p>Reply rate by email format and by lead score, cost per lead and per meeting, all from a full event log.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section alt" id="pricing">
+  <div class="lp-wrap">
+    <div class="section-head"><div class="kicker">Pricing</div><h2>Pay for the AI you use. That's it.</h2><p>Most AI prospecting tools charge per seat and per credit. Finley runs on your own Anthropic key at list prices, so a few hundred leads costs a few dollars.</p></div>
+    <div class="pricing">
+      <div class="plan">
+        <h3>Self-hosted</h3>
+        <div class="price">$0</div>
+        <p class="muted small">Run it on your own computer or server.</p>
+        <ul><li>{{ ui.icon("check") }}Everything in Finley</li><li>{{ ui.icon("check") }}Your own API key and data</li><li>{{ ui.icon("check") }}AGPL open source</li></ul>
+        <a class="btn" href="https://github.com/henrybrewer00-dotcom/Finley">{{ ui.icon("github") }}Get the code</a>
+      </div>
+      <div class="plan featured">
+        <div class="row between"><h3>Finley app</h3><span class="badge badge-green">Free</span></div>
+        <div class="price">$0 <small>+ your AI usage</small></div>
+        <p class="muted small">Use it here with your own Claude API key.</p>
+        <ul><li>{{ ui.icon("check") }}Lead finding, scoring and writing</li><li>{{ ui.icon("check") }}About 2¢ per lead, billed by Anthropic</li><li>{{ ui.icon("check") }}Claude Max and Team API credits apply</li><li>{{ ui.icon("check") }}Your key stored encrypted</li></ul>
+        <a class="btn btn-primary" href="{{ '/app' if user else '/signup' }}">Get started</a>
+      </div>
+      <div class="plan">
+        <div class="row between"><h3>Finley Cloud</h3><span class="badge">Coming soon</span></div>
+        <div class="price">Flat <small>monthly</small></div>
+        <p class="muted small">We run the AI for you. No key needed.</p>
+        <ul><li>{{ ui.icon("check") }}Everything in the app</li><li>{{ ui.icon("check") }}No API key to manage</li><li>{{ ui.icon("check") }}Team seats and shared campaigns</li></ul>
+        <a class="btn" href="{{ '/app' if user else '/signup' }}">Start free today</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="faq">
+  <div class="lp-wrap">
+    <div class="section-head"><div class="kicker">FAQ</div><h2>Questions</h2></div>
+    <div class="faq">
+      <details><summary>Where do the leads come from?</summary><p>Finley uses Claude's web search to find companies that match your description, then reads each company's own website for the right person and an email address they published. If you add a Hunter key, it can also look up work emails when a site lists none. It never guesses an address.</p></details>
+      <details><summary>What does it cost?</summary><p>Finley itself is free. You pay Anthropic for the AI it uses, at their list prices: well under a cent to find a lead and 1 to 2 cents to research, score and write its email. Claude Max and Team plans include monthly API credits that cover this.</p></details>
+      <details><summary>Will the emails sound like a robot?</summary><p>That's the thing we care about most. Each email follows a proven format, cites only facts Finley actually found, stays short, and passes a quality judge. You can paste your own past emails so it writes in your voice, and you approve every email before it sends.</p></details>
+      <details><summary>Is it safe to connect my inbox?</summary><p>Finley sends one email at a time from your own inbox, with a daily cap, a one-click unsubscribe header and an automatic do-not-contact list for bounces and unsubscribes. Your SMTP password is stored encrypted.</p></details>
+      <details><summary>Can I run it myself?</summary><p>Yes. Finley is open source under the AGPL. Clone it, run <code>finley serve</code>, and everything stays on your machine.</p></details>
+    </div>
+  </div>
+</section>
+
+<section class="final">
+  <div class="lp-wrap">
+    <h2>Your next 100 customers are out there.</h2>
+    <p>Tell Finley who they are. It'll find them and write the first email.</p>
+    <div class="cta" style="display:flex;gap:10px;justify-content:center;margin-top:26px;flex-wrap:wrap">
+      <a class="btn btn-primary btn-lg" href="{{ '/app' if user else '/signup' }}">Start finding leads {{ ui.icon("arrow-right") }}</a>
+    </div>
+  </div>
+</section>
+
+<footer class="lp-foot">
+  <div class="lp-wrap">
+    <span>© Finley · Open source under AGPL-3.0</span>
+    <span><a href="https://github.com/henrybrewer00-dotcom/Finley">GitHub</a><a href="/login">Log in</a><a href="/signup">Sign up</a></span>
+  </div>
+</footer>
+</div>
+{% endblock %}

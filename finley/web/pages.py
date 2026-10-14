@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
@@ -17,29 +16,16 @@ from ..pipeline import process_lead
 from ..scoring import parse_domains
 from ..sender import OUTCOMES, SendError, record_outcome, send_email
 from ..sources.csv_import import import_csv
-from .deps import (campaign_scope, current_user, llm_for, owned_campaign, redirect, render,
-                   services, user_id)
+from .deps import (api_key_for, llm_for, owned_campaign, owned_email, profile, redirect, render,
+                   require_user, safe_next, services, user_settings)
 
 router = APIRouter()
 
 TABS = [("overview", "Overview"), ("leads", "Leads"), ("emails", "Emails"), ("results", "Results")]
 
 
-def _require_user(request: Request):
-    if current_user(request) is None:
-        raise HTTPException(303, headers={"Location": "/login"})
-
-
-def _owned_email(request: Request, eid: int):
-    e = services(request).db.one("SELECT * FROM emails WHERE id = ?", eid)
-    if e is None:
-        raise HTTPException(404)
-    owned_campaign(request, e["campaign_id"])
-    return e
-
-
 def _campaigns(request: Request) -> list:
-    where, args = campaign_scope(request)
+    uid = require_user(request)["id"]
     return services(request).db.all(
         "SELECT c.*, "
         "(SELECT COUNT(*) FROM leads l WHERE l.campaign_id = c.id) AS n_leads, "
@@ -47,7 +33,7 @@ def _campaigns(request: Request) -> list:
         "(SELECT COUNT(*) FROM emails e WHERE e.campaign_id = c.id) AS n_drafted, "
         "(SELECT COUNT(*) FROM emails e WHERE e.campaign_id = c.id AND e.status IN ('draft','needs_review')) AS n_review, "
         "(SELECT COUNT(*) FROM emails e WHERE e.campaign_id = c.id AND e.status = 'sent') AS n_sent "
-        f"FROM campaigns c WHERE {where} ORDER BY c.id DESC", *args)
+        "FROM campaigns c WHERE c.user_id = ? ORDER BY c.id DESC", uid)
 
 
 def overview(request: Request) -> dict:
@@ -93,20 +79,17 @@ def overview(request: Request) -> dict:
 
 def setup_steps(request: Request, ov: dict) -> list[dict]:
     """The getting-started checklist on the dashboard."""
-    from .deps import api_key_for
-
-    s = services(request).settings
-    user = current_user(request) or {}
+    p = profile(request)
     return [
-        {"done": bool(api_key_for(request) or s.extra.get("demo")), "label": "Add your Anthropic API key",
+        {"done": bool(api_key_for(request)), "label": "Add your Anthropic API key",
          "hint": "Finley runs on your own key, so you pay cents per lead.", "href": "/app/settings#ai"},
-        {"done": bool(user.get("company_profile") or ov["campaigns"]), "label": "Describe what you sell",
-         "hint": "Your offer and proof points make every email specific.", "href": "/app/settings#business"},
+        {"done": bool(p.get("company_description")), "label": "Describe your business",
+         "hint": "Finley uses it to write about you accurately.", "href": "/app/settings#business"},
         {"done": ov["leads"] > 0, "label": "Find your first leads",
          "hint": "Describe your ideal customer in plain English.", "href": "/app/find"},
         {"done": ov["drafted"] > 0, "label": "Write your first emails",
          "hint": "Finley researches each lead and writes in a proven format.", "href": "/app/campaigns"},
-        {"done": bool(s.smtp_host or user.get("smtp_host")), "label": "Connect your inbox",
+        {"done": bool(p.get("smtp_host") and p.get("has_smtp_password")), "label": "Connect your inbox",
          "hint": "Send from your own Gmail or Outlook address.", "href": "/app/settings#sending"},
     ]
 
@@ -115,7 +98,7 @@ def setup_steps(request: Request, ov: dict) -> list[dict]:
 
 @router.get("/app")
 def dashboard(request: Request):
-    _require_user(request)
+    require_user(request)
     ov = overview(request)
     steps = setup_steps(request, ov)
     return render(request, "app/dashboard.html", active="dashboard", ov=ov, steps=steps,
@@ -124,23 +107,24 @@ def dashboard(request: Request):
 
 @router.get("/app/campaigns")
 def campaigns(request: Request):
-    _require_user(request)
+    require_user(request)
     return render(request, "app/campaigns.html", active="campaigns", campaigns=_campaigns(request))
 
 
 @router.get("/app/campaigns/new")
 def new_campaign(request: Request, lead_list: str = ""):
-    _require_user(request)
-    profile = (current_user(request) or {}).get("company_profile") or {}
-    return render(request, "app/campaign_new.html", active="campaigns", profile=profile, lead_list=lead_list)
+    require_user(request)
+    p = profile(request)
+    return render(request, "app/campaign_new.html", active="campaigns",
+                  profile={"offer": p.get("company_description", "")}, lead_list=lead_list)
 
 
 @router.post("/app/campaigns")
 def create_campaign(request: Request, name: str = Form(...), offer: str = Form(...), icp: str = Form(...),
                     proof: str = Form(""), voice_samples: str = Form("")):
-    _require_user(request)
+    require_user(request)
     cid = services(request).db.insert("campaigns", {
-        "user_id": user_id(request), "name": name.strip(), "offer": offer.strip(), "icp": icp.strip(),
+        "user_id": require_user(request)["id"], "name": name.strip(), "offer": offer.strip(), "icp": icp.strip(),
         "proof": proof.strip(), "voice_samples": voice_samples.strip(), "created_at": now()})
     return redirect(f"/app/campaigns/{cid}", msg="Campaign created. Add leads to get started.")
 
@@ -152,12 +136,14 @@ def campaign(request: Request, cid: int, tab: str = "overview"):
     leads = db.all("SELECT * FROM leads WHERE campaign_id = ? ORDER BY score DESC NULLS LAST, id LIMIT 1000", cid)
     emails = db.all("SELECT e.*, l.email AS to_email, l.first_name, l.last_name, l.company, l.title, l.score "
                     "FROM emails e JOIN leads l ON l.id = e.lead_id WHERE e.campaign_id = ? ORDER BY e.id DESC", cid)
-    s = services(request).settings
+    s = user_settings(request)
+    p = profile(request)
     return render(request, "app/campaign.html", active="campaigns", c=c, tab=tab, tabs=TABS,
                   leads=leads, emails=emails, m=campaign_metrics(db, cid), formats=FORMATS,
-                  outcomes=OUTCOMES, can_send=bool(s.smtp_host),
+                  outcomes=OUTCOMES, can_send=bool(s.smtp_host and s.from_email),
                   new_leads=sum(1 for l in leads if l["status"] == "new"),
-                  has_key=llm_for(request) is not None)
+                  has_key=llm_for(request) is not None, prefs=p,
+                  can_store_secrets=services(request).vault.enabled)
 
 
 @router.post("/app/campaigns/{cid}/edit")
@@ -197,6 +183,26 @@ def export_leads(request: Request, cid: int):
 
 # --- running: the browser walks the queue one lead per request -----------------------------------
 
+@router.post("/app/campaigns/{cid}/run")
+def run(request: Request, cid: int, limit: int = Form(25), min_score: float | None = Form(None),
+        exclude_domains: str = Form(""), demo: bool = Form(False), api_key: str = Form("")):
+    """No-JavaScript fallback: process up to `limit` leads in this request."""
+    from ..pipeline import run_campaign
+
+    owned_campaign(request, cid)
+    llm = llm_for(request, demo=demo, api_key=api_key)
+    if llm is None:
+        return redirect(f"/app/campaigns/{cid}", err="Add your Anthropic API key in Settings first.")
+    prefs = profile(request)
+    fetch = services(request).fetch
+    counts = run_campaign(services(request).db, llm, user_settings(request), cid, limit=limit,
+                          min_score=float(prefs.get("min_score") or 50) if min_score is None else min_score,
+                          exclude_domains=",".join(x for x in (prefs.get("exclude_domains"), exclude_domains) if x),
+                          **({"fetch": fetch} if fetch else {}))
+    return redirect(f"/app/campaigns/{cid}?tab=emails",
+                    msg=", ".join(f"{v} {k.replace('_', ' ')}" for k, v in counts.items()) + ".")
+
+
 @router.get("/api/campaigns/{cid}/queue")
 def queue(request: Request, cid: int, limit: int = 25):
     owned_campaign(request, cid)
@@ -208,36 +214,36 @@ def queue(request: Request, cid: int, limit: int = 25):
 
 @router.post("/api/leads/{lid}/process")
 def process(request: Request, lid: int, min_score: float = Form(50), exclude_domains: str = Form(""),
-            demo: bool = Form(False)):
+            demo: bool = Form(False), api_key: str = Form("")):
     db = services(request).db
     lead = db.one("SELECT * FROM leads WHERE id = ?", lid)
     if lead is None:
         raise HTTPException(404)
     c = owned_campaign(request, lead["campaign_id"])
-    llm = llm_for(request, demo=demo)
+    llm = llm_for(request, demo=demo, api_key=api_key)
     if llm is None:
         return JSONResponse({"result": "errors", "error": "Add your Anthropic API key in Settings first."},
                             status_code=400)
     if lead["status"] != "new":
         return {"result": "skipped"}
     fetch = services(request).fetch
-    out = process_lead(db, llm, services(request).settings, c, lead, min_score=min_score,
-                       excluded=parse_domains(exclude_domains), **({"fetch": fetch} if fetch else {}))
-    return out
+    saved = profile(request).get("exclude_domains") or ""  # customers and competitors from Settings
+    return process_lead(db, llm, user_settings(request), c, lead, min_score=min_score,
+                        excluded=parse_domains(f"{saved},{exclude_domains}"), **({"fetch": fetch} if fetch else {}))
 
 
 # --- emails --------------------------------------------------------------------------------------
 
 def _back(request: Request, e, msg: str = "", fallback_tab: str = "emails"):
     nxt = request.query_params.get("next")
-    if nxt and nxt.startswith("/app/"):
-        return redirect(nxt, msg=msg)
+    if nxt:
+        return redirect(safe_next(nxt), msg=msg)
     return redirect(f"/app/campaigns/{e['campaign_id']}?tab={fallback_tab}", msg=msg)
 
 
 @router.post("/app/emails/{eid}/edit")
 def edit_email(request: Request, eid: int, subject: str = Form(...), body: str = Form(...)):
-    e = _owned_email(request, eid)
+    e = owned_email(request, eid)
     db = services(request).db
     db.update("emails", eid, {"subject": subject, "body": body})
     db.log_event("email_edited", campaign_id=e["campaign_id"], email_id=eid)
@@ -246,7 +252,7 @@ def edit_email(request: Request, eid: int, subject: str = Form(...), body: str =
 
 @router.post("/app/emails/{eid}/status")
 def set_status(request: Request, eid: int, status: str = Form(...)):
-    e = _owned_email(request, eid)
+    e = owned_email(request, eid)
     if status not in ("approved", "rejected", "draft"):
         raise HTTPException(400)
     db = services(request).db
@@ -257,7 +263,7 @@ def set_status(request: Request, eid: int, status: str = Form(...)):
 
 @router.post("/app/emails/{eid}/outcome")
 def outcome(request: Request, eid: int, outcome: str = Form(...)):
-    e = _owned_email(request, eid)
+    e = owned_email(request, eid)
     record_outcome(services(request).db, eid, outcome)
     return _back(request, e, f"Logged: {outcome.replace('_', ' ')}.")
 
@@ -275,7 +281,7 @@ def approve_all(request: Request, cid: int, min_judge: float = Form(4.0)):
 @router.post("/app/campaigns/{cid}/send")
 def send_approved(request: Request, cid: int):
     owned_campaign(request, cid)
-    db, s = services(request).db, services(request).settings
+    db, s = services(request).db, user_settings(request)
     sent, errors = 0, []
     for r in db.all("SELECT id FROM emails WHERE campaign_id = ? AND status = 'approved'", cid):
         try:
@@ -283,7 +289,7 @@ def send_approved(request: Request, cid: int):
             sent += 1
         except SendError as e:
             errors.append(str(e))
-            if "Daily cap" in str(e) or "Set SMTP" in str(e):
+            if "Daily cap" in str(e) or "sending inbox" in str(e):
                 break
     if errors:
         return redirect(f"/app/campaigns/{cid}?tab=emails", msg=f"Sent {sent}.", err=errors[-1])
@@ -292,15 +298,15 @@ def send_approved(request: Request, cid: int):
 
 @router.get("/app/review")
 def review(request: Request, id: int | None = None):
-    _require_user(request)
+    require_user(request)
     db = services(request).db
-    where, args = campaign_scope(request)
     queue = db.all(
         "SELECT e.*, l.email AS to_email, l.first_name, l.last_name, l.company, l.title, l.website, l.score, "
         "l.score_json, l.research_json, c.name AS campaign_name FROM emails e "
         "JOIN leads l ON l.id = e.lead_id JOIN campaigns c ON c.id = e.campaign_id "
-        f"WHERE {where} AND e.status IN ('draft', 'needs_review', 'approved') "
-        "ORDER BY CASE e.status WHEN 'needs_review' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END, e.id", *args)
+        "WHERE c.user_id = ? AND e.status IN ('draft', 'needs_review', 'approved') "
+        "ORDER BY CASE e.status WHEN 'needs_review' THEN 0 WHEN 'draft' THEN 1 ELSE 2 END, e.id",
+        require_user(request)["id"])
     current = next((e for e in queue if e["id"] == id), None) or (queue[0] if queue else None)
     nxt = None
     if current is not None:

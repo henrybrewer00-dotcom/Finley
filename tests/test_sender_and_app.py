@@ -79,18 +79,19 @@ def test_outcomes_feed_metrics_and_suppression(db, settings, drafted):
 def test_dashboard_flow(db, settings, llm, csv_text):
     client = TestClient(create_app(settings, db, llm, fetch=lambda url: {}))
     r = client.post("/signup", data={"email": "alex@example.com", "password": "correct horse"})
-    assert r.status_code == 200 and "Settings" in r.text
-    r = client.post("/campaigns", data={"name": "Austin plumbers", "offer": "Call answering",
+    assert r.status_code == 200 and "Welcome" in r.text
+    r = client.post("/app/campaigns", data={"name": "Austin plumbers", "offer": "Call answering",
                                         "icp": "Plumbers in Austin"}, follow_redirects=False)
     assert r.status_code == 303
-    cid = int(r.headers["location"].split("/")[-1])
-    r = client.post(f"/campaigns/{cid}/import", files={"file": ("leads.csv", csv_text, "text/csv")})
+    cid = int(r.headers["location"].split("?")[0].split("/")[-1])
+    r = client.post(f"/app/campaigns/{cid}/import", files={"file": ("leads.csv", csv_text, "text/csv")})
     assert "3 imported" in r.text
-    r = client.post(f"/campaigns/{cid}/run", data={"limit": 10, "min_score": 50})
+    r = client.post(f"/app/campaigns/{cid}/run", data={"limit": 10, "min_score": 50})
     assert r.status_code == 200
-    page = client.get(f"/campaigns/{cid}").text
+    page = client.get(f"/app/campaigns/{cid}?tab=emails").text
     assert "Quick question" in page and "Approve" in page
-    r = client.post(f"/campaigns/{cid}/approve-all", data={"min_judge": 4})
+    r = client.post(f"/app/campaigns/{cid}/approve-all", data={"min_judge": 4})
     assert "Approved 2 drafts" in r.text
-    assert client.get("/").status_code == 200
-    assert client.get(f"/campaigns/{cid}/metrics.json").json()["drafted"] == 2
+    for path in ("/", "/app", "/app/campaigns", "/app/review", "/app/find", "/app/settings", f"/app/campaigns/{cid}?tab=results"):
+        assert client.get(path).status_code == 200, path
+    assert client.get(f"/app/campaigns/{cid}/metrics.json").json()["drafted"] == 2

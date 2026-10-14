@@ -7,94 +7,83 @@
 </section>
 {%- endmacro %}
 {% block content %}
-<div class="page-head"><div><h1>Settings</h1><p>Your account, your business, your AI key and your inbox.</p></div></div>
+<div class="page-head"><div><h1>Settings</h1><p>Your business, your AI key, your inbox and your account.</p></div></div>
 
 <div class="grid" style="grid-template-columns:200px minmax(0,1fr);align-items:start" id="settings-grid">
   <nav class="stack" style="--gap:2px;position:sticky;top:24px">
-    {% for id, label, icon_name in [("account", "Account", "user"), ("business", "Your business", "building"), ("ai", "AI and API key", "key"), ("sending", "Sending", "mail"), ("sources", "Data sources", "globe"), ("dnc", "Do not contact", "ban"), ("plan", "Plan and usage", "credit-card")] %}
+    {% for id, label, icon_name in [("business", "Your business", "building"), ("ai", "AI and API key", "key"), ("sending", "Sending", "mail"), ("defaults", "Lead rules", "target"), ("dnc", "Do not contact", "ban"), ("plan", "Plan and usage", "credit-card"), ("account", "Account", "user")] %}
     <a class="nav-link" href="#{{ id }}">{{ ui.icon(icon_name) }}{{ label }}</a>
     {% endfor %}
   </nav>
 
   <div class="stack" style="--gap:20px">
-    {% call section("account", "Account", "How you sign in.", "user") %}
-    <form method="post" action="/app/settings/account" class="card-body stack" style="--gap:14px">
-      <div class="grid grid-2" style="gap:14px">
-        <label class="field"><span class="label">Name</span><input class="input" name="name" value="{{ s.name or '' }}" autocomplete="name"></label>
-        <label class="field"><span class="label">Email</span><input class="input" type="email" name="email" value="{{ s.email or '' }}" autocomplete="email"></label>
-      </div>
-      <div class="grid grid-2" style="gap:14px">
-        <label class="field"><span class="label">New password</span><input class="input" type="password" name="new_password" autocomplete="new-password" placeholder="Leave blank to keep"></label>
-        <label class="field"><span class="label">Current password</span><input class="input" type="password" name="current_password" autocomplete="current-password" placeholder="Needed to change email or password"></label>
-      </div>
-      <div><button class="btn btn-primary">Save account</button></div>
-    </form>
-    {% endcall %}
-
-    {% call section("business", "Your business", "Finley uses this to prefill campaigns and to write about you accurately.", "building") %}
+    {% call section("business", "Your business", "Finley uses this to write about you accurately and to prefill new campaigns.", "building") %}
     <form method="post" action="/app/settings/business" class="card-body stack" style="--gap:14px">
       <div class="grid grid-2" style="gap:14px">
-        <label class="field"><span class="label">Company name</span><input class="input" name="company_name" value="{{ s.company_name or '' }}"></label>
-        <label class="field"><span class="label">Website</span><input class="input" name="company_website" value="{{ s.company_website or '' }}" placeholder="https://"></label>
+        <label class="field"><span class="label">Company name</span><input class="input" name="company_name" value="{{ s.company_name }}"></label>
+        <label class="field"><span class="label">Website</span><input class="input" name="company_website" value="{{ s.company_website }}" placeholder="https://"></label>
+        <label class="field"><span class="label">Your name</span><input class="input" name="from_name" value="{{ s.from_name }}"></label>
+        <label class="field"><span class="label">Your title</span><input class="input" name="sender_title" value="{{ s.sender_title }}" placeholder="Founder"></label>
       </div>
-      <label class="field"><span class="label">What you sell</span><textarea class="textarea" name="offer">{{ s.offer or '' }}</textarea></label>
-      <label class="field"><span class="label">Your ideal customer</span><textarea class="textarea" name="icp">{{ s.icp or '' }}</textarea></label>
-      <label class="field"><span class="label">Proof and results</span><span class="hint">Only what's true. Finley never invents numbers.</span><textarea class="textarea" name="proof">{{ s.proof or '' }}</textarea></label>
-      <label class="field"><span class="label">Emails you've written</span><span class="hint">Paste a few so Finley writes in your voice.</span><textarea class="textarea" name="voice_samples" rows="5">{{ s.voice_samples or '' }}</textarea></label>
-      <div><button class="btn btn-primary">Save business profile</button></div>
+      <label class="field"><span class="label">What you sell</span><span class="hint">Who it helps and the result it gets them. Real numbers only; Finley never invents them.</span><textarea class="textarea" name="company_description">{{ s.company_description }}</textarea></label>
+      <label class="field"><span class="label">Email signature</span><textarea class="textarea" name="signature" rows="3" placeholder="Alex Rivera&#10;Founder, Nightline">{{ s.signature }}</textarea></label>
+      <div><button class="btn btn-primary">Save</button></div>
     </form>
     {% endcall %}
 
     {% call section("ai", "AI and API key", "Finley runs on your own Anthropic key, so you pay Anthropic's prices and nothing else.", "key") %}
     <form method="post" action="/app/settings/ai" class="card-body stack" style="--gap:14px">
+      {% if can_store_secrets %}
       <label class="field"><span class="label">Anthropic API key</span>
-        <input class="input mono" type="password" name="anthropic_api_key" autocomplete="off" placeholder="{{ key_hint or 'sk-ant-…' }}">
-        <span class="hint">{% if has_key %}A key is saved ({{ key_hint }}). Paste a new one to replace it.{% else %}Get one at console.anthropic.com. Claude Max and Team plan API credits apply.{% endif %} Stored encrypted and only used for your own runs.</span></label>
-      <div class="grid grid-2" style="gap:14px">
-        <label class="field"><span class="label">Email writer</span>
-          <select class="select" name="writer_model">
-            {% for v, l in [("claude-opus-5-5", "Claude Opus 5.5 (best emails)"), ("claude-sonnet-5-5", "Claude Sonnet 5.5 (cheaper)")] %}<option value="{{ v }}" {{ "selected" if s.writer_model == v }}>{{ l }}</option>{% endfor %}
-          </select></label>
-        <label class="field"><span class="label">Quality bar</span>
-          <select class="select" name="judge_min_score">
-            {% for v, l in [("4", "High: rewrite until it scores 4 of 5"), ("4.5", "Very high: 4.5 of 5"), ("3.5", "Relaxed: 3.5 of 5")] %}<option value="{{ v }}" {{ "selected" if (s.judge_min_score|string) == v }}>{{ l }}</option>{% endfor %}
-          </select></label>
+        <input class="input mono" type="password" name="anthropic_key" autocomplete="off" placeholder="{{ s.anthropic_key_hint or 'sk-ant-…' }}">
+        <span class="hint">{% if s.has_anthropic_key %}A key is saved ({{ s.anthropic_key_hint }}). Paste a new one to replace it.{% else %}Create one at console.anthropic.com. Claude Max and Team plan API credits apply.{% endif %} Stored encrypted and only used for your own runs.</span></label>
+      <div class="row">
+        <button class="btn btn-primary">Save key</button>
+        {% if s.has_anthropic_key %}<button class="btn btn-ghost btn-danger" name="clear_anthropic_key" value="1">Remove key</button>{% endif %}
       </div>
-      <div class="row">{% if has_key %}<button class="btn btn-ghost btn-danger" name="remove_key" value="1">Remove key</button>{% endif %}<button class="btn btn-primary">Save AI settings</button></div>
+      {% else %}
+      <div class="alert alert-warn">{{ ui.icon("lock") }}<div>This server can't store keys yet because its encryption secret isn't set. Paste your key when you run a search or write emails; it's used for that request only.</div></div>
+      {% endif %}
+      <div class="grid grid-3" style="gap:12px">
+        <div class="kpi"><div class="kpi-label">Research and scoring</div><div style="font-weight:600;margin-top:4px">Claude Haiku 5.5</div><div class="kpi-sub">fast and cheap</div></div>
+        <div class="kpi"><div class="kpi-label">Email writing</div><div style="font-weight:600;margin-top:4px">Claude Opus 5.5</div><div class="kpi-sub">the best writer</div></div>
+        <div class="kpi"><div class="kpi-label">Typical cost</div><div style="font-weight:600;margin-top:4px">1 to 2¢ per lead</div><div class="kpi-sub">billed by Anthropic</div></div>
+      </div>
     </form>
     {% endcall %}
 
-    {% call section("sending", "Sending", "Emails go out from your own inbox, one at a time, with a daily cap to protect your domain.", "mail") %}
+    {% call section("sending", "Sending", "Emails go out from your own inbox with a daily cap to protect your domain.", "mail") %}
     <form method="post" action="/app/settings/sending" class="card-body stack" style="--gap:14px">
       <div class="grid grid-2" style="gap:14px">
-        <label class="field"><span class="label">From name</span><input class="input" name="from_name" value="{{ s.from_name or '' }}"></label>
-        <label class="field"><span class="label">From email</span><input class="input" type="email" name="from_email" value="{{ s.from_email or '' }}"></label>
-        <label class="field"><span class="label">SMTP server</span><input class="input" name="smtp_host" value="{{ s.smtp_host or '' }}" placeholder="smtp.gmail.com"></label>
+        <label class="field"><span class="label">Send from</span><input class="input" type="email" name="from_email" value="{{ s.from_email }}" placeholder="you@yourcompany.com"></label>
+        <label class="field"><span class="label">Daily limit</span><input class="input" type="number" name="daily_cap" value="{{ s.daily_cap or 30 }}" min="1" max="500"></label>
+        <label class="field"><span class="label">SMTP server</span><input class="input" name="smtp_host" value="{{ s.smtp_host }}" placeholder="smtp.gmail.com"></label>
         <label class="field"><span class="label">Port</span><input class="input" type="number" name="smtp_port" value="{{ s.smtp_port or 587 }}"></label>
-        <label class="field"><span class="label">Username</span><input class="input" name="smtp_user" value="{{ s.smtp_user or '' }}" autocomplete="off"></label>
-        <label class="field"><span class="label">Password or app password</span><input class="input" type="password" name="smtp_password" autocomplete="off" placeholder="{{ '••••••••' if s.smtp_password_set else '' }}"></label>
-        <label class="field"><span class="label">Daily limit</span><input class="input" type="number" name="daily_cap_per_inbox" value="{{ s.daily_cap_per_inbox or 30 }}" min="1" max="500"></label>
-        <label class="field"><span class="label">Postal address</span><input class="input" name="physical_address" value="{{ s.physical_address or '' }}" placeholder="Required by CAN-SPAM"></label>
+        <label class="field"><span class="label">Username</span><input class="input" name="smtp_user" value="{{ s.smtp_user }}" autocomplete="off"></label>
+        {% if can_store_secrets %}
+        <label class="field"><span class="label">Password or app password</span><input class="input" type="password" name="smtp_password" autocomplete="off" placeholder="{{ '•••••••• saved' if s.has_smtp_password else '' }}"></label>
+        {% endif %}
       </div>
+      <label class="field"><span class="label">Postal address</span><span class="hint">CAN-SPAM requires a physical address in commercial email.</span><input class="input" name="physical_address" value="{{ s.physical_address }}"></label>
       <p class="hint">Gmail: turn on 2-step verification, create an app password, and use smtp.gmail.com on port 587.</p>
-      <div><button class="btn btn-primary">Save sending settings</button></div>
+      <div class="row"><button class="btn btn-primary">Save</button>{% if s.has_smtp_password %}<button class="btn btn-ghost btn-danger" name="clear_smtp_password" value="1">Remove password</button>{% endif %}</div>
     </form>
     {% endcall %}
 
-    {% call section("sources", "Data sources", "Optional extras that help Finley find more emails.", "globe") %}
-    <form method="post" action="/app/settings/sources" class="card-body stack" style="--gap:14px">
-      <label class="field"><span class="label">treg token</span><input class="input mono" type="password" name="treg_token" autocomplete="off" placeholder="{{ '••••••••' if s.treg_token_set else 'Optional' }}">
-        <span class="hint">Lets Finley look up work emails through Hunter when a company's website doesn't list one.</span></label>
-      <div><button class="btn btn-primary">Save data sources</button></div>
+    {% call section("defaults", "Lead rules", "Applied to every search and every run.", "target") %}
+    <form method="post" action="/app/settings/defaults" class="card-body stack" style="--gap:14px">
+      <label class="field"><span class="label">Never contact these domains</span><span class="hint">Your customers and competitors, separated by commas.</span><input class="input" name="exclude_domains" value="{{ s.exclude_domains }}" placeholder="acme.com, rival.io"></label>
+      <label class="field" style="max-width:240px"><span class="label">Only write if the lead scores at least</span><input class="input" type="number" name="min_score" value="{{ s.min_score if s.min_score != '' else 50 }}" min="0" max="100"></label>
+      <div><button class="btn btn-primary">Save</button></div>
     </form>
     {% endcall %}
 
-    {% call section("dnc", "Do not contact", "People and domains Finley will never email. Bounces and unsubscribes are added automatically.", "ban") %}
+    {% call section("dnc", "Do not contact", "People Finley will never email. Bounces and unsubscribes are added automatically.", "ban") %}
     <form method="post" action="/app/settings/dnc" class="card-body stack" style="--gap:14px">
-      <label class="field"><span class="label">Add emails or domains</span><textarea class="textarea" name="entries" placeholder="one per line: jane@acme.com or acme.com"></textarea></label>
+      <label class="field"><span class="label">Add email addresses</span><textarea class="textarea" name="entries" placeholder="One per line"></textarea></label>
       <div><button class="btn btn-primary">Add to list</button></div>
       {% if suppressions %}
-      <div class="table-wrap" style="border:1px solid var(--border);border-radius:10px"><table class="table"><thead><tr><th>Email or domain</th><th>Reason</th><th>Added</th></tr></thead>
+      <div class="table-wrap" style="border:1px solid var(--border);border-radius:10px"><table class="table"><thead><tr><th>Email</th><th>Reason</th><th>Added</th></tr></thead>
         <tbody>{% for r in suppressions %}<tr><td>{{ r.email }}</td><td>{{ r.reason }}</td><td class="faint">{{ (r.ts or "")[:10] }}</td></tr>{% endfor %}</tbody></table></div>
       {% endif %}
     </form>
@@ -103,11 +92,31 @@
     {% call section("plan", "Plan and usage", "What you're on and what you've spent.", "credit-card") %}
     <div class="card-body stack" style="--gap:14px">
       <div class="grid grid-3" style="gap:12px">
-        {{ ui.kpi("Plan", usage.plan or "Bring your own key") }}
-        {{ ui.kpi("AI spend this month", (usage.month_cost or 0)|money, "billed by Anthropic to your key") }}
-        {{ ui.kpi("Finley fee", "$0", "open source, free forever") }}
+        {{ ui.kpi("Plan", "Bring your own key") }}
+        {{ ui.kpi("AI spend this month", usage.month_cost|money, "billed by Anthropic to your key") }}
+        {{ ui.kpi("Finley fee", "$0", "open source") }}
       </div>
-      <div class="alert alert-info">{{ ui.icon("sparkles") }}<div><b>Finley Cloud is coming.</b> We'll run everything for you with our own API account, so you don't need a key. Self-hosting stays free.</div></div>
+      <div class="alert alert-info">{{ ui.icon("sparkles") }}<div><b>Finley Cloud is coming.</b> We'll run everything on our own API account so you don't need a key, for a flat monthly price. Self-hosting stays free.</div></div>
+    </div>
+    {% endcall %}
+
+    {% call section("account", "Account", "How you sign in.", "user") %}
+    <div class="card-body stack" style="--gap:18px">
+      <div class="row" style="--gap:12px"><span class="avatar">{{ ui.initials(user.name or user.email) }}</span><div><div style="font-weight:600">{{ user.name or user.email }}</div><div class="faint small">{{ user.email }} · member since {{ (user.created_at or "")[:10] }}</div></div></div>
+      <form method="post" action="/app/settings/password" class="grid grid-2" style="gap:14px;align-items:end">
+        <label class="field"><span class="label">Current password</span><input class="input" type="password" name="current" autocomplete="current-password" required></label>
+        <label class="field"><span class="label">New password</span><input class="input" type="password" name="new" autocomplete="new-password" minlength="8" required></label>
+        <div><button class="btn">Change password</button></div>
+      </form>
+      <hr style="margin:0">
+      <details id="danger">
+        <summary class="btn btn-ghost btn-danger" style="list-style:none">Delete account</summary>
+        <form method="post" action="/app/settings/delete-account" class="stack" style="--gap:10px;margin-top:12px;max-width:420px">
+          <p class="small muted">This permanently deletes your account, campaigns, leads and emails. Type your email to confirm.</p>
+          <input class="input" name="confirm_email" placeholder="{{ user.email }}" required>
+          <div><button class="btn btn-danger">Delete everything</button></div>
+        </form>
+      </details>
     </div>
     {% endcall %}
   </div>
