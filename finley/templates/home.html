@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block body %}
+<h1>Campaigns</h1>
+<p class="muted">Each campaign is one offer sent to one ideal customer profile.</p>
+
+{% for c in campaigns %}
+<div class="panel"><a href="/campaigns/{{ c.id }}"><b>{{ c.name }}</b></a> <span class="muted">· {{ c.n }} leads · created {{ c.created_at[:10] }}</span></div>
+{% else %}
+<p class="muted">No campaigns yet. Create one below.</p>
+{% endfor %}
+
+<h2>New campaign</h2>
+<form class="panel" method="post" action="/campaigns">
+  <label>Name</label><input type="text" name="name" required placeholder="Phoenix HVAC, after-hours answering">
+  <label>Your offer</label><textarea name="offer" required placeholder="What you sell, who it helps, and the result it gets them."></textarea>
+  <label>Ideal customer profile</label><textarea name="icp" required placeholder="Industry, size, roles, locations. Also who to exclude."></textarea>
+  <label>Proof you can cite <span class="muted">(optional: case studies with real numbers)</span></label><textarea name="proof"></textarea>
+  <label>Your past emails <span class="muted">(optional: 3 to 10 you wrote, so Finley matches your voice)</span></label><textarea name="voice_samples"></textarea>
+  <p><button>Create campaign</button></p>
+</form>
+{% endblock %}

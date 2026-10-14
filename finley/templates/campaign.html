@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ c.name }} · Finley{% endblock %}
+{% block body %}
+<h1>{{ c.name }}</h1>
+<p class="muted">{{ c.offer[:180] }}</p>
+{% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+
+<div class="stats">
+  <div class="stat"><b>{{ m.leads }}</b><span>leads</span></div>
+  <div class="stat"><b>{{ m.drafted }}</b><span>emails drafted</span></div>
+  <div class="stat"><b>{{ m.sent }}</b><span>sent</span></div>
+  <div class="stat"><b>{{ m.reply_rate if m.reply_rate is not none else "–" }}{% if m.reply_rate is not none %}%{% endif %}</b><span>reply rate</span></div>
+  <div class="stat"><b>{{ m.meetings }}</b><span>meetings</span></div>
+  <div class="stat"><b>${{ "%.2f"|format(m.cost_usd) }}</b><span>AI cost{% if m.cost_per_meeting %} · ${{ m.cost_per_meeting }}/meeting{% endif %}</span></div>
+</div>
+
+<h2>1. Add leads</h2>
+<form class="panel" method="post" action="/campaigns/{{ c.id }}/import" enctype="multipart/form-data">
+  <div class="row"><div><label>CSV file <span class="muted">(needs an email column; name, company, website help)</span></label><input type="file" name="file" accept=".csv" required></div>
+  <div style="flex:0"><button>Import</button></div></div>
+</form>
+
+<h2>2. Research, score and write</h2>
+<form class="panel" method="post" action="/campaigns/{{ c.id }}/run">
+  <div class="row">
+    <div><label>Leads to process</label><input type="number" name="limit" value="25" min="1" max="1000"></div>
+    <div><label>Minimum score to write (0-100)</label><input type="number" name="min_score" value="50" min="0" max="100"></div>
+    <div><label>Exclude domains <span class="muted">(customers, competitors)</span></label><input type="text" name="exclude_domains" placeholder="acme.com, rival.io"></div>
+  </div>
+  <p><label style="display:inline;font-weight:400"><input type="checkbox" name="dry_run" value="true"> Dry run (fake AI, no cost)</label></p>
+  <button>Run</button>
+</form>
+
+<h2>3. Review and send</h2>
+<div class="row" style="margin-bottom:12px">
+  <form class="inline" method="post" action="/campaigns/{{ c.id }}/approve-all"><input type="hidden" name="min_judge" value="4"><button class="ghost">Approve all drafts that passed review</button></form>
+  <form class="inline" method="post" action="/campaigns/{{ c.id }}/send"><button {% if not can_send %}disabled title="Set SMTP settings in .env"{% endif %}>Send approved</button></form>
+</div>
+{% for e in emails %}
+{% set g = e.gate_json|fromjson %}
+<div class="panel">
+  <div class="row" style="align-items:baseline">
+    <div><b>{{ e.first_name }}</b> · {{ e.company }} <span class="muted">&lt;{{ e.to_email }}&gt;</span></div>
+    <div style="text-align:right">
+      <span class="tag">{{ formats[e.format_key].name if e.format_key in formats else e.format_key }}</span>
+      <span class="tag">judge {{ e.judge_score if e.judge_score is not none else "–" }}</span>
+      <span class="tag {{ 'good' if e.status in ('approved','sent') else 'warn' if e.status == 'needs_review' else '' }}">{{ e.status.replace('_', ' ') }}</span>
+    </div>
+  </div>
+  {% if e.status in ('draft', 'needs_review', 'approved') %}
+  <form method="post" action="/emails/{{ e.id }}/edit">
+    <label>Subject</label><input type="text" name="subject" value="{{ e.subject }}">
+    <label>Body</label><textarea name="body" rows="11">{{ e.body }}</textarea>
+    <p><button class="ghost">Save edits</button></p>
+  </form>
+  <form class="inline" method="post" action="/emails/{{ e.id }}/status"><input type="hidden" name="status" value="approved"><button>Approve</button></form>
+  <form class="inline" method="post" action="/emails/{{ e.id }}/status"><input type="hidden" name="status" value="rejected"><button class="ghost">Reject</button></form>
+  {% else %}
+  <p><b>{{ e.subject }}</b></p><div class="email">{{ e.body }}</div>
+  {% endif %}
+  {% if e.status == 'sent' %}
+  <p>Log outcome:
+  {% for o in outcomes %}<form class="inline" method="post" action="/emails/{{ e.id }}/outcome"><input type="hidden" name="outcome" value="{{ o }}"><button class="ghost">{{ o.replace('_', ' ') }}</button></form> {% endfor %}</p>
+  {% endif %}
+  <details><summary>Why this email</summary>
+    <p>Angle: {{ g.angle or "–" }} · attempts: {{ g.attempts }} · {{ g.metrics.words if g.metrics else "" }} words · reading grade {{ g.metrics.reading_grade if g.metrics else "" }}</p>
+    {% if g.failures %}<p class="warn">Open issues: {{ g.failures|join("; ") }}</p>{% endif %}
+    {% if g.judge and g.judge.issues %}<p class="warn">Judge: {{ g.judge.issues|join("; ") }}</p>{% endif %}
+    <p>Claims: {% for cl in (e.claims_json|fromjson) %}“{{ cl.text }}” <span class="muted">({{ cl.fact_id }})</span>{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  </details>
+</div>
+{% else %}
+<p class="muted">No drafts yet. Import leads and run step 2.</p>
+{% endfor %}
+
+<h2>Leads</h2>
+<div class="panel scroll"><table>
+<tr><th>Score</th><th>Name</th><th>Company</th><th>Email</th><th>Status</th><th>Why</th></tr>
+{% for l in leads %}{% set s = l.score_json|fromjson %}
+<tr><td>{{ l.score if l.score is not none else "–" }} <span class="muted">{{ band(l.score) }}</span></td>
+<td>{{ l.first_name }} {{ l.last_name }}<br><span class="muted">{{ l.title }}</span></td><td>{{ l.company }}</td><td>{{ l.email }}</td><td>{{ l.status }}</td>
+<td class="muted">{% if s.reason %}{{ s.reason }}{% elif s.reasons %}fit: {{ s.reasons.fit }}{% endif %}</td></tr>
+{% endfor %}
+</table></div>
+
+<h2>Results by format and score band</h2>
+<div class="row">
+{% for title, rows in [("Format", m.by_format), ("Score band", m.by_band)] %}
+<div class="panel scroll"><table><tr><th>{{ title }}</th><th>Drafted</th><th>Sent</th><th>Replies</th><th>Positive</th><th>Reply rate</th></tr>
+{% for r in rows %}<tr><td>{{ r.key }}</td><td>{{ r.drafted }}</td><td>{{ r.sent }}</td><td>{{ r.replies }}</td><td>{{ r.positive }}</td><td>{{ r.reply_rate if r.reply_rate is not none else "–" }}</td></tr>{% endfor %}
+</table></div>
+{% endfor %}
+</div>
+<p class="muted">AI cost by step: {% for k, v in m.cost_by_task.items() %}{{ k }} ${{ v }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+{% endblock %}

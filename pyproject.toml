@@ -1,0 +1,33 @@
+[project]
+name = "finley"
+version = "0.1.0"
+description = "Open-source, ultra-cheap lead finder, scorer and cold email campaign manager."
+readme = "README.md"
+license = { text = "AGPL-3.0-only" }
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=1.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+finley = "finley.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["finley*"]
+
+[tool.setuptools.package-data]
+finley = ["templates/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

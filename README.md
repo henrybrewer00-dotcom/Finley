@@ -1,0 +1,72 @@
+# Finley
+
+**Open-source lead finder, lead scorer and cold email campaign manager. Bring your own Claude key; pay cents, not hundreds a month.**
+
+Finley takes a list of leads, researches each one, scores it against your ideal customer, and writes a cold email in one of ten proven formats using Claude Opus 5.5. Every email has to pass automatic quality checks before you can send it from your own inbox. Every step logs what it cost and what happened, so you can see cost per meeting, which formats win, and whether high-scoring leads really reply more.
+
+> Status: MVP. CSV import, research, scoring, writing, review, sending and metrics work today. Plain-English list building, multi-step sequences and automatic reply detection are next.
+
+## How it works
+
+1. **Import leads** from any CSV (Apollo, HubSpot, Google Sheets). Finley maps the columns, drops bad and duplicate emails, and skips anyone on your do-not-contact list.
+2. **Research.** Finley reads each company's homepage and About page, and Claude Haiku pulls out up to five verifiable facts, each with its source.
+3. **Score.** Free hard filters (role addresses, excluded domains) run first. Then Haiku rates fit, need, timing and reachability from 1 to 5, with a reason for each, and combines them into a 0-100 score.
+4. **Write.** For leads above your threshold, Finley picks the best format for what the research found, then Claude Opus 5.5 writes the email in your voice.
+5. **Gate.** Each draft must pass checks for length, links, spam phrases, placeholders, reading level, subject line, and **every claim tracing back to a research fact**. A Haiku judge then scores relevance, specificity, clarity and tone. Failures go back to the writer with the reasons, up to two rewrites. Anything still failing is flagged for you instead of sent.
+6. **Review and send** from the dashboard: edit, approve one by one or all that passed, then send from your own Gmail/Outlook/SMTP inbox with a daily cap and a one-click unsubscribe header.
+7. **Measure.** Log replies and meetings with one click. The dashboard shows reply rate by email format and by score band, plus AI cost per lead and per meeting.
+
+## The format library
+
+Every email follows one named format from [`finley/formats.py`](finley/formats.py): Quick question, Trigger, Problem-Agitate-Solve, Before-After-Bridge, Relevance-Reward-Request, Peer proof, Give first, Owner-direct (local), Right person?, and Breakup. A format only becomes available when the research supports it. For example, Trigger needs a real trigger event, and Before-After-Bridge needs a case study you supplied. Add your own with `formats.load_extra("my_formats.json")`.
+
+## Quick start
+
+```bash
+git clone <this repo> && cd finley
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env        # add your ANTHROPIC_API_KEY and, to send, your SMTP details
+finley serve                # http://127.0.0.1:8000
+```
+
+Or from the command line:
+
+```bash
+finley new "Austin plumbers" --offer "We answer after-hours calls..." --icp "Owner-operated plumbers in Texas"
+finley import 1 examples/leads.csv
+finley run 1 --limit 25 --min-score 50          # add --dry-run to try it with fake AI and no cost
+finley metrics 1
+```
+
+## Cost
+
+Finley calls Claude with **your** API key, so you pay Anthropic's list prices and nothing else. If you're on a Claude Max or Team plan, its monthly API credits cover this. Rough AI cost per lead fully worked (research, score, write, judge): about 1 to 2 cents, mostly the Opus email. Leads that fail the free filters or score below your threshold never reach Opus. Every call's real cost is in the event log; see `finley metrics`.
+
+To trade quality for cost, set `FINLEY_WRITER_MODEL=claude-sonnet-5-5` or lower `FINLEY_WRITER_EFFORT`.
+
+## Email Bench
+
+```bash
+finley bench               # runs the writer on 20 fixed lead profiles; writes bench/results/<time>.md
+finley bench --dry-run     # same, with fake AI (checks the plumbing, costs nothing)
+```
+
+Bench reports the pass rate, the **unbacked-claim rate** (target 0), the average judge score, words, rewrite attempts, cost and which formats were used. Run it before and after any prompt, model or format change.
+
+## Configuration
+
+See [`.env.example`](.env.example). Data lives in one SQLite file (`finley.db`). The dashboard binds to `127.0.0.1`. Set `FINLEY_PASSWORD` before exposing it anywhere.
+
+## Sending responsibly
+
+Finley is for relevant, one-to-one B2B outreach. Plain text, no tracking pixels, an unsubscribe line and a `List-Unsubscribe` header on every email, a per-inbox daily cap (default 30), and automatic suppression of bounces and unsubscribes. You're responsible for following CAN-SPAM, GDPR/PECR, CASL and Anthropic's [Usage Policy](https://www.anthropic.com/legal/aup). Set `PHYSICAL_ADDRESS` to include your postal address, as CAN-SPAM requires.
+
+## Data sources
+
+- CSV import (any provider).
+- [treg](https://github.com/superdesigndev/treg) (optional, `TREG_TOKEN`): `finley/sources/treg.py` can find missing work emails through Hunter via treg's proxy. Finley calls treg; it does not bundle or re-host it.
+
+## License
+
+AGPL-3.0. You can self-host and modify Finley freely; if you run a modified version as a service for others, you must publish your changes.

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Finley{% endblock %}</title>
+<style>
+  :root { --bg:#fafaf9; --panel:#fff; --ink:#1c1917; --muted:#78716c; --line:#e7e5e4; --accent:#2563eb; --good:#15803d; --warn:#b45309; --bad:#b91c1c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1c1917; --panel:#292524; --ink:#fafaf9; --muted:#a8a29e; --line:#44403c; --accent:#60a5fa; --good:#4ade80; --warn:#fbbf24; --bad:#f87171; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui, -apple-system, sans-serif; }
+  header { padding:14px 24px; border-bottom:1px solid var(--line); display:flex; gap:16px; align-items:baseline; }
+  header a { color:var(--ink); text-decoration:none; font-weight:700; font-size:18px; }
+  header span { color:var(--muted); }
+  main { max-width:1100px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:24px; margin:0 0 4px; } h2 { font-size:17px; margin:32px 0 10px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+  .muted { color:var(--muted); } .good { color:var(--good); } .warn { color:var(--warn); } .bad { color:var(--bad); }
+  label { display:block; font-weight:600; margin:10px 0 4px; }
+  input[type=text], input[type=number], textarea { width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); font:inherit; }
+  textarea { min-height:70px; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:8px 14px; font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--line); }
+  .row { display:flex; gap:12px; flex-wrap:wrap; align-items:end; } .row > * { flex:1; min-width:140px; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .stat b { display:block; font-size:22px; } .stat span { color:var(--muted); font-size:13px; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } th, td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-weight:600; }
+  .scroll { overflow-x:auto; }
+  .email { white-space:pre-wrap; font-family:inherit; margin:8px 0; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:99px; border:1px solid var(--line); font-size:12px; color:var(--muted); }
+  .flash { background:var(--panel); border-left:4px solid var(--accent); padding:10px 14px; border-radius:6px; margin-bottom:16px; }
+  details summary { cursor:pointer; color:var(--muted); }
+  form.inline { display:inline; }
+</style>
+</head>
+<body>
+<header><a href="/">Finley</a><span>open-source lead finder, scorer and campaign manager</span></header>
+<main>{% block body %}{% endblock %}</main>
+</body>
+</html>
