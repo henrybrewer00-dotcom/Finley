@@ -206,3 +206,13 @@
 .lp .final p { color: #d2d2ff; }
 .lp .final .btn-primary { color: var(--ink); }
 .lp .final .btn-primary:hover { color: #fff; border-color: #fff; }
+
+/* ===== QUIET PASS (landing) ===== */
+.lp .hero h1 em, .lp .final h2 em { background: none; color: var(--ink); -webkit-text-fill-color: var(--ink); padding: 0; }
+.lp .final { background: #fff; } .lp .final p { color: var(--text-2); }
+.lp .final .btn-primary { background: var(--ink); color: #fff; border-color: var(--ink); }
+.lp .show-tabs { border-bottom: 1px solid var(--border); }
+.lp .show-tab.active { border-bottom: 2px solid var(--ink); color: var(--text); }
+.lp-links a { color: var(--text-2); }
+.eyebrow { border-color: var(--border); color: var(--text-2); }
+.am-rail b { background: var(--brand-soft); color: var(--ink); }
