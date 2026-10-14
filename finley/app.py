@@ -27,6 +27,8 @@ ERROR_PAGE = """<!doctype html><meta charset="utf-8"><meta name="viewport" conte
 <main class="auth"><div class="card card-pad center stack" style="max-width:420px"><h1>Something went wrong</h1>
 <p class="muted">Finley hit an error loading this page. Try again in a moment.</p>
 <div><a class="btn btn-primary" href="/app">Back to Finley</a></div></div></main>"""
+NOT_FOUND_PAGE = ERROR_PAGE.replace("Something went wrong", "Page not found").replace(
+    "Finley hit an error loading this page. Try again in a moment.", "That page doesn't exist or was moved.")
 
 
 def create_app(settings: Settings | None = None, db: DB | None = None, llm=None, fetch=None,
@@ -45,6 +47,14 @@ def create_app(settings: Settings | None = None, db: DB | None = None, llm=None,
 
             return JSONResponse({"error": "Log in first."}, status_code=401)
         return RedirectResponse(f"/login?next={quote(request.url.path)}", status_code=303)
+
+    @app.exception_handler(404)
+    def not_found(request: Request, exc):
+        from fastapi.responses import HTMLResponse, JSONResponse
+
+        if request.url.path.startswith("/api/") or "html" not in request.headers.get("accept", ""):
+            return JSONResponse({"detail": getattr(exc, "detail", "Not Found")}, status_code=404)
+        return HTMLResponse(NOT_FOUND_PAGE, status_code=404)
 
     @app.exception_handler(Exception)
     def server_error(request: Request, exc: Exception):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
+from fastapi.responses import PlainTextResponse
 
 from ..formats import FORMATS
 from .deps import render, services
@@ -13,6 +14,11 @@ router = APIRouter()
 @router.get("/")
 def landing(request: Request):
     return render(request, "site/landing.html", n_formats=len(FORMATS))
+
+
+@router.get("/robots.txt", response_class=PlainTextResponse)
+def robots():
+    return "User-agent: *\nAllow: /\nDisallow: /app\nDisallow: /api\n"
 
 
 @router.get("/healthz")
